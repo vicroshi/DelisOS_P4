@@ -19,51 +19,72 @@ int filter(const struct dirent* dir){
 
 void cmp_ent(struct dirent** a, struct dirent**b, int a_len, int b_len, struct dirent*** intersection,struct dirent*** diffA,struct dirent*** diffB,int* i_len, int* dA_len, int* dB_len){
     int max = (a_len > b_len ? a_len : b_len);
-    printf("max %d\n",max);
-    for (int i = 0; i < a_len; i++) {
-        printf("size:%ld %s %d %ld %ld %d\n", sizeof(struct dirent),a[i]->d_name,a[i]->d_type,a[i]->d_ino,a[i]->d_off,a[i]->d_reclen);
+//    printf("max %d\n",max);
+//    for (int i = 0; i < a_len; i++) {
+//        printf("size:%ld %s %d %ld %ld %d\n", sizeof(struct dirent),a[i]->d_name,a[i]->d_type,a[i]->d_ino,a[i]->d_off,a[i]->d_reclen);
 //        free(a[i]);
-    }
+//    }
     *intersection = malloc(sizeof(struct dirent*) * max);
     *diffA = malloc(sizeof(struct dirent*) * a_len);
     *diffB = malloc(sizeof(struct dirent*) * b_len);
-    for (int i = 0; i < max; i++) {
+//    for (int i = 0; i < max; i++) {
 //        printf("i:%d ",i);
-        (*intersection)[i] = malloc(sizeof(struct dirent));
-        if (i<a_len){
+//        (*intersection)[i] = malloc(sizeof(struct dirent));
+//        if (i<a_len){
 //            printf("i:%d ",i);
-            (*diffA)[i] = malloc(sizeof(struct dirent));
-        }
-        if(i<b_len){
-
-            (*diffB)[i] = malloc(sizeof(struct dirent));
-        }
-    }
+//            (*diffA)[i] = malloc(sizeof(struct dirent));
+//        }
+//        if(i<b_len){
+//
+//            (*diffB)[i] = malloc(sizeof(struct dirent));
+//        }
+//    }
     putchar('\n');
     int i = 0, j = 0, k = 0, ii = 0, jj = 0;
     while (i < a_len && j < b_len){
         printf("i=%d j=%d k=%d ii=%d jj=%d\n",i,j,k,ii,jj);
         if(strcmp(a[i]->d_name,b[j]->d_name)<0){
 //            printf("ii:%d ",ii);
-            *(*diffA)[ii++] = *a[i];
-//            memcpy((*diffA)[ii],a[i], sizeof(struct dirent));
-//            ii++;
+//            struct dirent da;
+//            memcpy((*(*diffA)[ii]).d_name,(*a[i]).d_name,strlen((*a[i]).d_name)+1);
+//            (*(*diffA)[ii]).d_reclen = (*a[i]).d_reclen;
+//            (*(*diffA)[ii]).d_ino = (*a[i]).d_ino;
+//            (*(*diffA)[ii]).d_off = (*a[i]).d_off;
+//            (*(*diffA)[ii]).d_type = (*a[i]).d_type;
+            (*diffA)[ii] = malloc(a[i]->d_reclen);
+            memcpy((*diffA)[ii],a[i],a[i]->d_reclen);
+            ii++;
             i++;
         }
         else if(strcmp(a[i]->d_name,b[j]->d_name)>0){
+            (*diffB)[jj] = malloc(b[i]->d_reclen);
             *(*diffB)[jj++] = *b[j];
             j++;
         }
         else{
-            *(*intersection)[k++] = *a[i];
-//            memcpy((*intersection)[k],a[i], sizeof(struct dirent));
+//            *(*intersection)[k++] = *a[i];
+            (*intersection)[k] = malloc(a[i]->d_reclen);
+            memcpy((*intersection)[k],a[i],a[i]->d_reclen);
+//            memcpy((*(*intersection)[k]).d_name,(*a[i]).d_name,strlen((*a[i]).d_name)+1);
+//            (*(*intersection)[k]).d_reclen = (*a[i]).d_reclen;
+//            (*(*intersection)[k]).d_ino = (*a[i]).d_ino;
+//            (*(*intersection)[k]).d_off = (*a[i]).d_off;
+//            (*(*intersection)[k]).d_type = (*a[i]).d_type;
+//            memcpy((*intersection)[k],a[i], sizeof(struct dirent),sizeof(a[i], sizstrlen(a[i], sizeof(struct diren+1t))
             i++;
             j++;
         }
     }
     for (; i < a_len; i++) {
         printf("i=%d j=%d k=%d ii=%d jj=%d\n",i,j,k,ii,jj);
-        *(*diffA)[ii++] = *a[i];
+        memcpy((*diffA)[ii],a[i],a[i]->d_reclen);
+//        *(*diffA)[ii++] = *a[i];
+//        memcpy((*(*diffA)[ii]).d_name,(*a[i]).d_name,strlen((*a[i]).d_name)+1);
+//        (*(*diffA)[ii]).d_reclen = (*a[i]).d_reclen;
+//        (*(*diffA)[ii]).d_ino = (*a[i]).d_ino;
+//        (*(*diffA)[ii]).d_off = (*a[i]).d_off;
+//        (*(*diffA)[ii]).d_type = (*a[i]).d_type;
+        ii++;
     }
     for (; j < b_len; j++) {
         printf("i=%d j=%d k=%d ii=%d jj=%d\n",i,j,k,ii,jj);
