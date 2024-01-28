@@ -1,7 +1,7 @@
 
 # Executables
 compile_commands.json
-
+cmpcats
 .idea
 # Prerequisites
 *.d
