@@ -52,7 +52,7 @@ void cmp_ent(struct dirent** a, struct dirent**b, int a_len, int b_len, struct d
     for (; j < b_len; j++) {
 //        printf("i=%d j=%d k=%d ii=%d jj=%d\n",i,j,k,ii,jj);
         (*diffB)[jj] = malloc(b[i]->d_reclen);
-        memcpy((*diffB)[jj++],a[i],b[j]->d_reclen);
+        memcpy((*diffB)[jj++],b[i],b[j]->d_reclen);
     }
     //isws kai na mh xreiazetai kan den glittwneis xwros
 //    *diffA = realloc(*diffA,ii*sizeof(struct dirent*));
