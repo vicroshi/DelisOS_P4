@@ -26,6 +26,33 @@ int cmp_dir(char* pathA, char* pathB /**/){
 
 }
 
+void compare(char* pathA, char* pathB){
+    int lenA = 0,lenB = 0;
+    struct dirent** a = NULL;
+    struct dirent** b = NULL;
+    if (pathA){
+        lenA = scandir(pathA,&a,filter,alphasort);
+    }
+    if (pathB){
+        lenB = scandir(pathB,&b,filter,alphasort);
+    }
+    int i = 0, j = 0;
+
+    while(lenA && lenB){
+        if(strcmp(a[i]->d_name,b[j]->d_name)<0){
+
+        }
+        else if(strcmp(a[i]->d_name,b[j]->d_name)>0){
+
+        }
+        else{
+
+        }
+        lenA--;
+        lenB--;
+    }
+}
+
 void cmp_ent(char* pathA, char* pathB, struct dirent** a, struct dirent**b, int a_len, int b_len, struct dirent*** intersection,struct dirent*** diffA,struct dirent*** diffB,int* i_len, int* dA_len, int* dB_len){
     int max = (a_len > b_len ? a_len : b_len);
     *intersection = malloc(sizeof(struct dirent*) * max);
