@@ -39,7 +39,7 @@ char* construct_path(char* path,char* name){
     return new_path;
 }
 
-void compare(char* pathA, char* pathB,list* diffA,list* diffB){
+void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB){
     int lenA = 0,lenB = 0;
     struct dirent** a = NULL;
     struct dirent** b = NULL;
@@ -55,6 +55,7 @@ void compare(char* pathA, char* pathB,list* diffA,list* diffB){
     while(lenA && lenB){
         if(strcmp(a[i]->d_name,b[j]->d_name)<0){
 //            listInsert(diffA,)
+            lenA--;
             new_pathA = construct_path(pathA,a[i++]->d_name);
             listInsert(diffA,new_pathA);
             lstat(new_pathA,&stA);
@@ -74,6 +75,7 @@ void compare(char* pathA, char* pathB,list* diffA,list* diffB){
             }
         }
         else if(strcmp(a[i]->d_name,b[j]->d_name)>0){
+            lenB--;
             new_pathB =  construct_path(pathB,b[j++]->d_name);
             listInsert(diffB, new_pathB);
             lstat(new_pathB,&stB);
@@ -82,11 +84,13 @@ void compare(char* pathA, char* pathB,list* diffA,list* diffB){
             }
         }
         else{
+            lenA--;
+            lenB--;
             new_pathA = construct_path(pathA,a[i++]->d_name);
             new_pathB = construct_path(pathB,b[j++]->d_name);
             lstat(new_pathA,&stA);
             lstat(new_pathB,&stB);
-            if (stA.st_mode&S_IFMT == stB.st_mode&S_IFMT){
+            if ((stA.st_mode&S_IFMT) == (stB.st_mode&S_IFMT)){
                 switch (stA.st_mode&S_IFMT) {
                     case S_IFDIR:
                         compare(new_pathA,new_pathB,diffA,diffB);
@@ -102,8 +106,7 @@ void compare(char* pathA, char* pathB,list* diffA,list* diffB){
                 }
             }
         }
-        lenA--;
-        lenB--;
+
     }
     for (; lenA>0; i++,lenA--) {
         new_pathA = construct_path(pathA,a[i]->d_name);
@@ -262,7 +265,7 @@ char diff(char* dirA, char* dirB){
 //    print_and_free(diffA,lenDiffA,"diffA");
 //    print_and_free(diffB,lenDiffB,"diffB");
 //    print_and_free(intersection,lenIntr,"intersection");
-    list * diffA,*diffB;
+    listPtr diffA,diffB;
     diffA = listInit();
     diffB = listInit();
     compare(dirA,dirB,diffA,diffB);

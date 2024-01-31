@@ -2,12 +2,14 @@
 #include <stdlib.h>
 #include "list.h" 
 #include <string.h>
+typedef struct list_node list_node;
+typedef struct list_node* list_nodePtr;
 struct list_node{
     char *file_path;
     list_node *nxt;
 };
- struct list{
-    
+typedef struct list list;
+struct list{
     list_nodePtr head;
 };
 

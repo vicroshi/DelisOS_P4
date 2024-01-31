@@ -3,6 +3,7 @@
 compile_commands.json
 cmpcats
 .idea
+.vscode
 # Prerequisites
 *.d
 
