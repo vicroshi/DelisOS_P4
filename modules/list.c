@@ -28,7 +28,7 @@ void listPrint(listPtr l){
         printf("%s\n",p->file_path);
         p=p->nxt;
     }
-    return;
+//    return;
 }
 
 void listInsert(listPtr l, char *path){
@@ -46,7 +46,7 @@ void listInsert(listPtr l, char *path){
     strcpy(new->file_path,path);
     new->nxt=p; //to bazoume stin arxi
     l->head=new;
-    return;
+//    return;
 }
 
 void listDstr(listPtr l){
@@ -59,5 +59,5 @@ void listDstr(listPtr l){
         free(prev->file_path);
         free(prev);
     }
-    return;
+//    return;
 }
