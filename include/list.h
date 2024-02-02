@@ -8,7 +8,7 @@ typedef struct list* listPtr;
 
 
 //primary list functions
-listPtr listInit(void);
+listPtr listInit(char *);
 void listPrint(listPtr);
 //void listPrintall(listPtr );
 void listInsert(listPtr , char *);
