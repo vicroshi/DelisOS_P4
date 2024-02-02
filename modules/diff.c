@@ -17,14 +17,6 @@ int filter(const struct dirent* dir){
     return dir->d_name[0]!='.';
 }
 
-/*int cmp_dir(char* pathA, char* pathB *//**//*){
-    struct dirent** entriesA;
-    struct dirent** entriesB;
-    int lenA = scandir(pathA,entriesA,filter,alphasort);
-    int lenB = scandir(pathB,entriesB,filter,alphasort);
-
-}*/
-
 char* construct_path(char* path,char* name){
     char *new_path=malloc(strlen(path)+strlen(name)+2);
     if(new_path==NULL){
@@ -35,6 +27,54 @@ char* construct_path(char* path,char* name){
     strcat(new_path,"/");
     strcat(new_path,name);
     return new_path;
+}
+
+char* construct_relative_path(char *path){//apo to full path, kratame mono to path mesa apo to folder
+    char *relative_path;
+    int index;
+    for(index=0;index < strlen(path);index++) if(path[index++]=='/') break; //mexri to prwto '/' pou tha broume, ++ gia na pame ston xaraktira META to '/'
+    relative_path=malloc((strlen(path)-index+1)*sizeof(char));
+    if(relative_path==NULL){
+        perror("malloc()");
+        exit(1);
+    }
+    memcpy(relative_path,path+index,strlen(path)-index+1); //+1 gia to terminating character
+    return relative_path;
+}
+
+//dinontas 2 paths arxeiwn, elegxw an exoun idio size kai idia contents
+int files_have_same_contents(char *filepathA,char*filepathB,size_t file_size){
+    char a,b;
+    int fd1,fd2;
+    fd1=open(filepathA,O_RDONLY);
+    if(fd1==-1){
+        perror("open()");
+        exit(1);
+    }
+    fd2=open(filepathB,O_RDONLY);
+    if(fd2==-1){
+        perror("open()");
+        exit(1);
+    }
+
+    for(size_t i=0; i<file_size;i++){
+        if(read(fd1,&a,1)==-1){
+            perror("read()");
+            exit(1);
+        }
+        if(read(fd2,&b,1)==-1){
+            perror("read()");
+            exit(1);
+        }
+        if(a!=b){//brikame byte to opoio den einai idio, ara ta arxeia den exoun idia contents
+            close(fd1);
+            close(fd2);
+            return 0;
+        }
+    }
+    close(fd1);
+    close(fd2);
+    return 1;
 }
 
 void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB){
@@ -50,40 +90,30 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB){
     int i = 0, j = 0;
     char* new_pathA = NULL,*new_pathB = NULL;
     struct stat stA,stB;
-    while(lenA && lenB){
+    while(i<lenA && j<lenB){
         if(strcmp(a[i]->d_name,b[j]->d_name)<0){
-//            listInsert(diffA,)
-            lenA--;
+            //lenA--;  //allagi sunthikis, to sbinw gia na kserw megethos pinaka gia free meta
             new_pathA = construct_path(pathA,a[i++]->d_name);
             listInsert(diffA,new_pathA);
             lstat(new_pathA,&stA);
-            switch (stA.st_mode&S_IFMT) {
-                case S_IFDIR:
-                    //cmpdir
-                    compare(new_pathA, NULL,diffA,NULL);
-                    break;
-//                case S_IFREG:
-//                    //cmpfile
-//                    break;
-//                case S_IFLNK:
-//                    //cmplink
-//                    break;
-                default:
-                    break;
+            if( (stA.st_mode&S_IFMT) ==S_IFDIR){ //an einai dir, prepei na mpoume na to elegksoume
+                compare(new_pathA, NULL,diffA,NULL);
             }
+            free(new_pathA);
         }
         else if(strcmp(a[i]->d_name,b[j]->d_name)>0){
-            lenB--;
+           // lenB--;
             new_pathB =  construct_path(pathB,b[j++]->d_name);
             listInsert(diffB, new_pathB);
             lstat(new_pathB,&stB);
-            if ((stB.st_mode&S_IFMT )== S_IFDIR){
+            if ((stB.st_mode&S_IFMT )== S_IFDIR){ //an einai dir, prepei na mpoume na to elegksoume
                 compare(NULL,new_pathB,NULL,diffB);
             }
+            free(new_pathB);
         }
-        else{
-            lenA--;
-            lenB--;
+        else{  //ta arxeia exoun to idio onoma, elegxw an exoun kai idio tupo. an diaferoun se kati, mpainoun kai stis duo listes
+           // lenA--;
+           // lenB--;
             new_pathA = construct_path(pathA,a[i++]->d_name);
             new_pathB = construct_path(pathB,b[j++]->d_name);
             lstat(new_pathA,&stA);
@@ -93,8 +123,12 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB){
                     case S_IFDIR:
                         compare(new_pathA,new_pathB,diffA,diffB);
                         break;
-                    case S_IFREG:
+                    case S_IFREG: //exoun idio name kai eiani regular files. elegxw an exoun idio size kai an ta contents einai ta idia
                         //compare files
+                        if( !(stA.st_size==stB.st_size && (files_have_same_contents(new_pathA,new_pathB,stA.st_size))) ){ //an den exoun idio size kai den exoun idia contents, den einai to idio arxeio, prepei na ta emfanisoume
+                            listInsert(diffA,new_pathA);
+                            listInsert(diffB,new_pathB);
+                        }
                         break;
                     case S_IFLNK:
                         //compare links
@@ -103,28 +137,113 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB){
                         break;
                 }
             }
+            free(new_pathA);
+            free(new_pathB);
         }
-
     }
-    for (; lenA>0; i++,lenA--) {
+    for (; i<lenA; i++) {
         new_pathA = construct_path(pathA,a[i]->d_name);
         listInsert(diffA,new_pathA);
         lstat(new_pathA,&stA);
         if ((stA.st_mode&S_IFMT )== S_IFDIR){
             compare(new_pathA,NULL,diffA,NULL);
         }
+        free(new_pathA);
 //        (*diffA)[ii] = malloc(a[i]->d_reclen);
 //        memcpy((*diffA)[ii++],a[i],a[i]->d_reclen);
     }
-    for (; lenB>0; j++,lenB--) {
+    for (; j<lenB; j++) {
         new_pathB =  construct_path(pathB,b[j]->d_name);
         listInsert(diffB, new_pathB);
         lstat(new_pathB,&stB);
         if ((stB.st_mode&S_IFMT )== S_IFDIR){
             compare(NULL,new_pathB,NULL,diffB);
         }
+        free(new_pathB);
     }
+    for(int i=0;i<lenA;i++) free(a[i]);
+    free(a);
+    for(int j=0;j<lenB;j++) free(b[j]);
+    free(b);
 }
+
+char diff(char* dirA, char* dirB){
+    //dirent api
+
+    //kwdikas pou den xrisimopoieitai
+   /* struct dirent** entriesA;
+    struct dirent** entriesB;
+    int lenB = scandir(dirB,&entriesB,filter,alphasort);
+    int lenA = scandir(dirA,&entriesA,filter,alphasort);
+    struct dirent** intersection;
+//    struct dirent** diffA;
+//    struct dirent** diffB;
+    int lenIntr;
+    int lenDiffA;
+    int lenDiffB;
+//    cmp_ent(dirA,dirB,entriesA,entriesB,lenA,lenB,
+//            &intersection,&diffA,&diffB,&lenIntr,&lenDiffA,&lenDiffB);
+//    print_and_free(entriesA,lenA,"dirA");
+//    print_and_free(entriesB,lenB,"dirB");
+//    print_and_free(diffA,lenDiffA,"diffA");
+//    print_and_free(diffB,lenDiffB,"diffB");
+//    print_and_free(intersection,lenIntr,"intersection"); */
+
+
+    listPtr diffA,diffB;
+    diffA = listInit(dirA);
+    diffB = listInit(dirB);
+    compare(dirA,dirB,diffA,diffB);
+    printf("In %s:\n",dirA);
+    listPrint(diffA);
+    printf("\nIn %s:\n",dirB);
+    listPrint(diffB);
+    listDstr(diffA);
+    listDstr(diffB);
+
+
+
+
+    //fts api
+    /*char* fts_arg[] = {
+            dirA,
+            dirB,
+            NULL
+    };
+    FTS* ftsA = fts_open(fts_arg,FTS_PHYSICAL,NULL);
+    FTSENT* e;
+    FTSENT* entriesA;
+    FTSENT* entryA;
+    while ((entryA = fts_read(ftsA))){
+        entriesA = fts_children(ftsA,0);
+        if (entriesA){
+            printf("folder:%s\n",entryA->fts_name);
+            print_fts(entriesA);
+        }
+    }*/
+    return 1;
+}
+
+
+
+//#################################################################################################################################################
+//#################################################################################################################################################
+///synartiseis apo proigoumeno version
+
+
+
+
+
+
+
+/*int cmp_dir(char* pathA, char* pathB *//**//*){
+    struct dirent** entriesA;
+    struct dirent** entriesB;
+    int lenA = scandir(pathA,entriesA,filter,alphasort);
+    int lenB = scandir(pathB,entriesB,filter,alphasort);
+
+}*/
+
 
 void cmp_ent(char* pathA, char* pathB, struct dirent** a, struct dirent**b, int a_len, int b_len, struct dirent*** intersection,struct dirent*** diffA,struct dirent*** diffB,int* i_len, int* dA_len, int* dB_len){
     int max = (a_len > b_len ? a_len : b_len);
@@ -243,50 +362,3 @@ void print_and_free(struct dirent ** arr, int len, char* name){
 //        tmp = tmp->fts_link;
 //    }
 //}
-
-char diff(char* dirA, char* dirB){
-    //dirent api
-//    struct dirent** entriesA;
-//    struct dirent** entriesB;
-//    int lenB = scandir(dirB,&entriesB,filter,alphasort);
-//    int lenA = scandir(dirA,&entriesA,filter,alphasort);
-//    struct dirent** intersection;
-//    struct dirent** diffA;
-//    struct dirent** diffB;
-//    int lenIntr;
-//    int lenDiffA;
-//    int lenDiffB;
-//    cmp_ent(dirA,dirB,entriesA,entriesB,lenA,lenB,
-//            &intersection,&diffA,&diffB,&lenIntr,&lenDiffA,&lenDiffB);
-//    print_and_free(entriesA,lenA,"dirA");
-//    print_and_free(entriesB,lenB,"dirB");
-//    print_and_free(diffA,lenDiffA,"diffA");
-//    print_and_free(diffB,lenDiffB,"diffB");
-//    print_and_free(intersection,lenIntr,"intersection");
-    listPtr diffA,diffB;
-    diffA = listInit();
-    diffB = listInit();
-    compare(dirA,dirB,diffA,diffB);
-    listPrint(diffA);
-    listPrint(diffB);
-    //fts api
-    /*char* fts_arg[] = {
-            dirA,
-            dirB,
-            NULL
-    };
-    FTS* ftsA = fts_open(fts_arg,FTS_PHYSICAL,NULL);
-    FTSENT* e;
-    FTSENT* entriesA;
-    FTSENT* entryA;
-    while ((entryA = fts_read(ftsA))){
-        entriesA = fts_children(ftsA,0);
-        if (entriesA){
-            printf("folder:%s\n",entryA->fts_name);
-            print_fts(entriesA);
-        }
-    }*/
-    return 1;
-}
-
-
