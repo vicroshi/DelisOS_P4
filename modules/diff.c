@@ -2,19 +2,17 @@
 // Created by vic on 27/01/2024.
 //
 
-
 #define _GNU_SOURCE
-#include "diff.h"
-#include "list.h"
 #include <stdio.h>
 #include <dirent.h>
 #include <sys/stat.h>
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
-#include <sys/types.h>
 #include <unistd.h>
-#include <fts.h>
+//#include <fts.h>
+#include "diff.h"
+#include "list.h"
 int filter(const struct dirent* dir){
     return dir->d_name[0]!='.';
 }
@@ -221,43 +219,43 @@ void print_and_free(struct dirent ** arr, int len, char* name){
 
 }
 
-void print_fts(FTSENT* list){
-    FTSENT* tmp = list;
-    char* type;
-    
-    while(tmp){
-        switch (tmp->fts_info) {
-            case FTS_D:
-                type = "directory";
-                break;
-            case FTS_F:
-                type = "file";
-                break;
-            case FTS_SL:
-                type = "softlink";
-                break;
-            default:
-                type = "unknown";
-                break;
-        }
-        printf("name: %s, path: %s, access_path: %s, level: %d, type: %s\n",tmp->fts_name, tmp->fts_path,tmp->fts_accpath,tmp->fts_level,type);
-
-        tmp = tmp->fts_link;
-    }
-}
+//void print_fts(FTSENT* list){
+//    FTSENT* tmp = list;
+//    char* type;
+//
+//    while(tmp){
+//        switch (tmp->fts_info) {
+//            case FTS_D:
+//                type = "directory";
+//                break;
+//            case FTS_F:
+//                type = "file";
+//                break;
+//            case FTS_SL:
+//                type = "softlink";
+//                break;
+//            default:
+//                type = "unknown";
+//                break;
+//        }
+//        printf("name: %s, path: %s, access_path: %s, level: %d, type: %s\n",tmp->fts_name, tmp->fts_path,tmp->fts_accpath,tmp->fts_level,type);
+//
+//        tmp = tmp->fts_link;
+//    }
+//}
 
 char diff(char* dirA, char* dirB){
     //dirent api
-    struct dirent** entriesA;
-    struct dirent** entriesB;
-    int lenB = scandir(dirB,&entriesB,filter,alphasort);
-    int lenA = scandir(dirA,&entriesA,filter,alphasort);
-    struct dirent** intersection;
+//    struct dirent** entriesA;
+//    struct dirent** entriesB;
+//    int lenB = scandir(dirB,&entriesB,filter,alphasort);
+//    int lenA = scandir(dirA,&entriesA,filter,alphasort);
+//    struct dirent** intersection;
 //    struct dirent** diffA;
 //    struct dirent** diffB;
-    int lenIntr;
-    int lenDiffA;
-    int lenDiffB;
+//    int lenIntr;
+//    int lenDiffA;
+//    int lenDiffB;
 //    cmp_ent(dirA,dirB,entriesA,entriesB,lenA,lenB,
 //            &intersection,&diffA,&diffB,&lenIntr,&lenDiffA,&lenDiffB);
 //    print_and_free(entriesA,lenA,"dirA");

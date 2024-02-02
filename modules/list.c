@@ -1,16 +1,17 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
-#include "list.h" 
 #include <string.h>
+#include "list.h"
 typedef struct list_node list_node;
-typedef struct list_node* list_nodePtr;
+//typedef struct list_node* list_node*;
 struct list_node{
     char *file_path;
     list_node *nxt;
 };
 typedef struct list list;
 struct list{
-    list_nodePtr head;
+    list_node* head;
 };
 
 listPtr listInit(void){
@@ -25,7 +26,7 @@ listPtr listInit(void){
 }
 
 void listPrint(listPtr l){
-    list_nodePtr p=l->head;
+    list_node* p=l->head;
     while(p!=NULL){
         printf("%s\n",p->file_path);
         p=p->nxt;
@@ -34,7 +35,7 @@ void listPrint(listPtr l){
 }
 
 void listInsert(listPtr l, char *path){
-    list_nodePtr p=l->head,new;
+    list_node* p=l->head,*new;
     new=malloc(sizeof(list_node));
     if(new==NULL){
         perror("malloc()");
@@ -52,7 +53,7 @@ void listInsert(listPtr l, char *path){
 }
 
 void listDstr(listPtr l){
-    list_nodePtr p=l->head,prev;
+    list_node* p=l->head,*prev;
    
     free(l);
     while(p!=NULL){
