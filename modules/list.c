@@ -36,14 +36,14 @@ listPtr listInit(char* dirName){
 void listPrint(listPtr l){
     list_node* p=l->head;
     while(p!=NULL){
-        printf("%s\n",p->file_path);
+        printf("%s\n",p->file_path+strlen(l->dirName)+1); //+1 gia na min ektypwthei kai to '/'
         p=p->nxt;
     }
 //    return;
 }
 
 void listInsert(listPtr l, char *path){
-    list_node* p=l->head,*new;
+    list_node *new;
     new=malloc(sizeof(list_node));
     if(new==NULL){
         perror("malloc()");
