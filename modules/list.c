@@ -2,11 +2,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include "list.h"
 typedef struct list_node list_node;
 //typedef struct list_node* list_node*;
 struct list_node{
     char *file_path;
+//    struct stat* st; //xreiazetai gia to merge
     list_node *nxt;
 };
 typedef struct list list;

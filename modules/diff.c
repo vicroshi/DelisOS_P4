@@ -10,6 +10,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <libgen.h>
 //#include <fts.h>
 #include "diff.h"
 #include "list.h"
@@ -77,6 +78,77 @@ int files_have_same_contents(char *filepathA,char*filepathB,size_t file_size){
     return 1;
 }
 
+int compare_links(char* pathA, char* pathB, struct stat* stA, struct stat* stB, listPtr diffA, listPtr diffB){
+    char link_pathA[PATH_MAX];
+    char link_pathB[PATH_MAX];
+    strcpy(link_pathA,pathA);
+//                        link_pathB = malloc(strlen(new_pathB)+1);
+    strcpy(link_pathB,pathB);
+    char flag = 1;
+    while (flag){
+        char targetA[stA->st_size];
+        char* target_pathA;
+        char targetB[stA->st_size];
+        char* target_pathB;
+        int nbytesA,nbytesB;
+        char* target_dirA;
+        char* target_baseA;
+        char* target_dirB;
+        char* target_baseB;
+        nbytesA = readlink(link_pathA,targetA,stA->st_size+1);
+        if (nbytesA==-1){
+            perror("readlink");
+            exit(EXIT_FAILURE);
+        }
+        target_dirA = dirname(targetA);
+        target_baseA = basename(targetA);
+        nbytesB = readlink(link_pathB,targetB,stB->st_size+1);
+        if (nbytesB==-1){
+            perror("readlink");
+            exit(EXIT_FAILURE);
+        }
+        target_dirB = dirname(targetB);
+        target_baseB = basename(targetB);
+        if (!strcmp(targetA,targetB)){
+            struct stat st_targA,st_targB;
+            target_pathA = construct_path(link_pathA,targetA);
+            lstat(target_pathA,&st_targA);
+            target_pathB = construct_path(link_pathB,targetB);
+            lstat(target_pathB,&st_targB);
+            if ((st_targA.st_mode & S_IFMT) == (st_targB.st_mode & S_IFMT))
+                switch (st_targA.st_mode & S_IFMT) {
+                    case S_IFREG:
+                        if (!(st_targA.st_size == st_targB.st_size && files_have_same_contents(target_pathA,target_pathB,st_targA.st_size))){
+                            listInsert(diffA,target_pathA);
+                            listInsert(diffA,target_pathB);
+                        }
+                        flag = 0;
+                        free(target_pathA);
+                        free(target_pathB);
+//                                        free(link_pathA);
+//                                        free(link_pathB);
+                        break;
+                    case S_IFLNK:
+//                                        free(link_pathA);
+//                                        link_pathA = malloc(strlen(target_pathA)+1);
+                        strcpy(link_pathA,target_pathA);
+//                                        free(link_pathB);
+//                                        link_pathB = malloc(strlen(target_pathB)+1);
+                        strcpy(link_pathB,target_pathB);
+                        free(target_pathA);
+                        free(target_pathB);
+                        continue;
+                    default:
+                        break;
+                }
+        }
+//                            if(targetA[0] !=
+//                            '/'){
+//
+//                            }
+    }
+}
+
 void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB){
     int lenA = 0,lenB = 0;
     struct dirent** a = NULL;
@@ -118,7 +190,11 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB){
             new_pathB = construct_path(pathB,b[j++]->d_name);
             lstat(new_pathA,&stA);
             lstat(new_pathB,&stB);
+
             if ((stA.st_mode&S_IFMT) == (stB.st_mode&S_IFMT)){
+                char flag = 1;
+                char link_pathA[PATH_MAX];
+                char link_pathB[PATH_MAX];
                 switch (stA.st_mode&S_IFMT) {
                     case S_IFDIR:
                         compare(new_pathA,new_pathB,diffA,diffB);
@@ -132,6 +208,8 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB){
                         break;
                     case S_IFLNK:
                         //compare links
+//                        link_pathA = malloc(strlen(new_pathA)+1);
+
                         break;
                     default:
                         break;
@@ -245,87 +323,87 @@ char diff(char* dirA, char* dirB){
 }*/
 
 
-void cmp_ent(char* pathA, char* pathB, struct dirent** a, struct dirent**b, int a_len, int b_len, struct dirent*** intersection,struct dirent*** diffA,struct dirent*** diffB,int* i_len, int* dA_len, int* dB_len){
-    int max = (a_len > b_len ? a_len : b_len);
-    *intersection = malloc(sizeof(struct dirent*) * max);
-    *diffA = malloc(sizeof(struct dirent*) * a_len);
-    *diffB = malloc(sizeof(struct dirent*) * b_len);
-    int i = 0, j = 0, k = 0, ii = 0, jj = 0;
-    struct stat stA,stB;
-    char* cwd;
-    while (i < a_len && j < b_len){
-//        printf("i=%d j=%d k=%d ii=%d jj=%d\n",i,j,k,ii,jj);
-        if(strcmp(a[i]->d_name,b[j]->d_name)<0){
-            (*diffA)[ii] = malloc(a[i]->d_reclen);
-            memcpy((*diffA)[ii++],a[i],a[i]->d_reclen);
-            i++;
-        }
-        else if(strcmp(a[i]->d_name,b[j]->d_name)>0){
-            (*diffB)[jj] = malloc(b[i]->d_reclen);
-            memcpy((*diffB)[jj++],b[j],b[j]->d_reclen);
-            j++;
-        }
-        else{
-            /*
-             * stat gia elegxo tipou kai inode klp
-             * switch gia to type
-             * kai meta compares
-             */
-            cwd = get_current_dir_name();
-            chdir(pathA);
-            lstat(a[i]->d_name,&stA);
-            printf("%s %ld\n",a[i]->d_name,stA.st_ino);
-            chdir(cwd);
-            chdir(pathB);
-            lstat(b[j]->d_name,&stB);
-            printf("%s %ld\n",b[j]->d_name,stB.st_ino);
-            mode_t typeA = stA.st_mode & S_IFMT;
-            mode_t typeB = stB.st_mode & S_IFMT;
-            if (typeA == typeB){
-                switch (typeA) {
-                    case S_IFDIR:
-                        //cmpdir
-                        break;
-                    case S_IFREG:
-                        //cmpfile
-                        break;
-                    case S_IFLNK:
-                        //cmplink
-                        break;
-                    default:
-                        break;
-                }
-            }
-            else{
-                //einai diaforetika valta sto diff
-            }
-
-//            lstat()
-//            lstat()
-            (*intersection)[k] = malloc(a[i]->d_reclen);
-            memcpy((*intersection)[k++],a[i],a[i]->d_reclen);
-            i++;
-            j++;
-        }
-    }
-    for (; i < a_len; i++) {
-//        printf("i=%d j=%d k=%d ii=%d jj=%d\n",i,j,k,ii,jj);
-        (*diffA)[ii] = malloc(a[i]->d_reclen);
-        memcpy((*diffA)[ii++],a[i],a[i]->d_reclen);
-    }
-    for (; j < b_len; j++) {
-//        printf("i=%d j=%d k=%d ii=%d jj=%d\n",i,j,k,ii,jj);
-        (*diffB)[jj] = malloc(b[j]->d_reclen);
-        memcpy((*diffB)[jj++],b[j],b[j]->d_reclen);
-    }
-    //isws kai na mh xreiazetai kan den glittwneis xwros
-//    *diffA = realloc(*diffA,ii*sizeof(struct dirent*));
-//    *diffB = realloc(*diffB,jj*sizeof(struct dirent*));
-//    *intersection = realloc(*intersection,k*sizeof(struct dirent*));
-    *i_len = k;
-    *dA_len = ii;
-    *dB_len = jj;
-}
+//void cmp_ent(char* pathA, char* pathB, struct dirent** a, struct dirent**b, int a_len, int b_len, struct dirent*** intersection,struct dirent*** diffA,struct dirent*** diffB,int* i_len, int* dA_len, int* dB_len){
+//    int max = (a_len > b_len ? a_len : b_len);
+//    *intersection = malloc(sizeof(struct dirent*) * max);
+//    *diffA = malloc(sizeof(struct dirent*) * a_len);
+//    *diffB = malloc(sizeof(struct dirent*) * b_len);
+//    int i = 0, j = 0, k = 0, ii = 0, jj = 0;
+//    struct stat stA,stB;
+//    char* cwd;
+//    while (i < a_len && j < b_len){
+////        printf("i=%d j=%d k=%d ii=%d jj=%d\n",i,j,k,ii,jj);
+//        if(strcmp(a[i]->d_name,b[j]->d_name)<0){
+//            (*diffA)[ii] = malloc(a[i]->d_reclen);
+//            memcpy((*diffA)[ii++],a[i],a[i]->d_reclen);
+//            i++;
+//        }
+//        else if(strcmp(a[i]->d_name,b[j]->d_name)>0){
+//            (*diffB)[jj] = malloc(b[i]->d_reclen);
+//            memcpy((*diffB)[jj++],b[j],b[j]->d_reclen);
+//            j++;
+//        }
+//        else{
+//            /*
+//             * stat gia elegxo tipou kai inode klp
+//             * switch gia to type
+//             * kai meta compares
+//             */
+//            cwd = get_current_dir_name();
+//            chdir(pathA);
+//            lstat(a[i]->d_name,&stA);
+//            printf("%s %ld\n",a[i]->d_name,stA.st_ino);
+//            chdir(cwd);
+//            chdir(pathB);
+//            lstat(b[j]->d_name,&stB);
+//            printf("%s %ld\n",b[j]->d_name,stB.st_ino);
+//            mode_t typeA = stA.st_mode & S_IFMT;
+//            mode_t typeB = stB.st_mode & S_IFMT;
+//            if (typeA == typeB){
+//                switch (typeA) {
+//                    case S_IFDIR:
+//                        //cmpdir
+//                        break;
+//                    case S_IFREG:
+//                        //cmpfile
+//                        break;
+//                    case S_IFLNK:
+//                        //cmplink
+//                        break;
+//                    default:
+//                        break;
+//                }
+//            }
+//            else{
+//                //einai diaforetika valta sto diff
+//            }
+//
+////            lstat()
+////            lstat()
+//            (*intersection)[k] = malloc(a[i]->d_reclen);
+//            memcpy((*intersection)[k++],a[i],a[i]->d_reclen);
+//            i++;
+//            j++;
+//        }
+//    }
+//    for (; i < a_len; i++) {
+////        printf("i=%d j=%d k=%d ii=%d jj=%d\n",i,j,k,ii,jj);
+//        (*diffA)[ii] = malloc(a[i]->d_reclen);
+//        memcpy((*diffA)[ii++],a[i],a[i]->d_reclen);
+//    }
+//    for (; j < b_len; j++) {
+////        printf("i=%d j=%d k=%d ii=%d jj=%d\n",i,j,k,ii,jj);
+//        (*diffB)[jj] = malloc(b[j]->d_reclen);
+//        memcpy((*diffB)[jj++],b[j],b[j]->d_reclen);
+//    }
+//    //isws kai na mh xreiazetai kan den glittwneis xwros
+////    *diffA = realloc(*diffA,ii*sizeof(struct dirent*));
+////    *diffB = realloc(*diffB,jj*sizeof(struct dirent*));
+////    *intersection = realloc(*intersection,k*sizeof(struct dirent*));
+//    *i_len = k;
+//    *dA_len = ii;
+//    *dB_len = jj;
+//}
 
 void print_and_free(struct dirent ** arr, int len, char* name){
     printf("%s: ",name);
@@ -335,7 +413,6 @@ void print_and_free(struct dirent ** arr, int len, char* name){
     }
     free(arr);
     putchar('\n');
-
 }
 
 //void print_fts(FTSENT* list){
