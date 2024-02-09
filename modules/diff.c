@@ -11,6 +11,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <libgen.h>
+#include <sys/time.h>
 //#include <fts.h>
 #include "diff.h"
 #include "list.h"
@@ -99,12 +100,12 @@ char* absolute_dirname(char* link,char* target){
     }
     else {
         char pathc[PATH_MAX] = {};
-        printf("link: %s\ntarget: %s\n", link, target);
-        printf("%s\n", pathc);
+//        printf("link: %s\ntarget: %s\n", link, target);
+//        printf("%s\n", pathc);
         strncpy(pathc, link, strlen(link) - len_lnk);
-        printf("%s\n", pathc);
+//        printf("%s\n", pathc);
         strncat(pathc, target, strlen(target) - len_trg);
-        printf("%s\n", pathc);
+//        printf("%s\n", pathc);
 //    char* dir = dirname(pathc);
 //    printf("%s\n",dir);
         abs = realpath(pathc, NULL);
@@ -181,8 +182,8 @@ int compare_links(char* pathA, char* rootA, char* pathB, char* rootB, struct sta
         else{
             target_baseB++;
         }
-        printf("dirname: %s basename: %s\n", strstr(target_dirB,rootB)+ strlen(rootB),target_baseB);
-        printf("dirname: %s basename: %s\n", strstr(target_dirA,rootA)+ strlen(rootA),target_baseA);
+//        printf("dirname: %s basename: %s\n", strstr(target_dirB,rootB)+ strlen(rootB),target_baseB);
+//        printf("dirname: %s basename: %s\n", strstr(target_dirA,rootA)+ strlen(rootA),target_baseA);
 //        printf("dirname: %s basename: %s\n", target_dirA,targetA);
         if (!strcmp(strstr(target_dirA,rootA)+ strlen(rootA), strstr(target_dirB,rootB)+ strlen(rootB)) && !strcmp(target_baseA, target_baseB)) {
 //            free(target_dirA);
@@ -219,8 +220,8 @@ int compare_links(char* pathA, char* rootA, char* pathB, char* rootB, struct sta
                 }
         }
         else {
-            printf("targetA_size: %d\ntargetB_size: %d\n", stA->st_size, stB->st_size);
-            printf("targetA: %s\ntargetB: %s\n", targetA, targetB);
+//            printf("targetA_size: %d\ntargetB_size: %d\n", stA->st_size, stB->st_size);
+//            printf("targetA: %s\ntargetB: %s\n", targetA, targetB);
             free(target_dirA);
             free(target_dirB);
             return 0;
@@ -228,7 +229,12 @@ int compare_links(char* pathA, char* rootA, char* pathB, char* rootB, struct sta
     }
 }
 
-void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB){
+#define compare_timespec(a, b, CMP)     (((a)->tv_sec==(b)->tv_sec) \
+                                        ?((a)->tv_nsec CMP (b)->tv_nsec) \
+                                        :((a)->tv_sec CMP (b)->tv_sec))
+
+
+void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB, listPtr intersection){
     int lenA = 0,lenB = 0;
     struct dirent** a = NULL;
     struct dirent** b = NULL;
@@ -240,6 +246,7 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB){
     }
     int i = 0, j = 0;
     char* new_pathA = NULL,*new_pathB = NULL;
+    char* path;
     struct stat stA,stB;
     while(i<lenA && j<lenB){
         if(strcmp(a[i]->d_name,b[j]->d_name)<0){
@@ -248,7 +255,7 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB){
             listInsert(diffA,new_pathA);
             lstat(new_pathA,&stA);
             if( (stA.st_mode&S_IFMT) ==S_IFDIR){ //an einai dir, prepei na mpoume na to elegksoume
-                compare(new_pathA, NULL,diffA,NULL);
+                compare(new_pathA, NULL,diffA,NULL,NULL);
             }
             free(new_pathA);
         }
@@ -258,7 +265,7 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB){
             listInsert(diffB, new_pathB);
             lstat(new_pathB,&stB);
             if ((stB.st_mode&S_IFMT )== S_IFDIR){ //an einai dir, prepei na mpoume na to elegksoume
-                compare(NULL,new_pathB,NULL,diffB);
+                compare(NULL,new_pathB,NULL,diffB,NULL);
             }
             free(new_pathB);
         }
@@ -269,30 +276,49 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB){
             new_pathB = construct_path(pathB,b[j++]->d_name);
             lstat(new_pathA,&stA);
             lstat(new_pathB,&stB);
-
             if ((stA.st_mode&S_IFMT) == (stB.st_mode&S_IFMT)){
-                char flag = 1;
+                int flag = 0;
                 char link_pathA[PATH_MAX];
                 char link_pathB[PATH_MAX];
+//                int flag = 0;
                 switch (stA.st_mode&S_IFMT) {
                     case S_IFDIR:
-                        compare(new_pathA,new_pathB,diffA,diffB);
+                        compare(new_pathA,new_pathB,diffA,diffB,intersection);
                         break;
                     case S_IFREG: //exoun idio name kai eiani regular files. elegxw an exoun idio size kai an ta contents einai ta idia
                         //compare files
-                        if( !(stA.st_size==stB.st_size && (files_have_same_contents(new_pathA,new_pathB,stA.st_size))) ){ //an den exoun idio size kai den exoun idia contents, den einai to idio arxeio, prepei na ta emfanisoume
-                            listInsert(diffA,new_pathA);
-                            listInsert(diffB,new_pathB);
-                        }
+                        flag = (stA.st_size==stB.st_size) && files_have_same_contents(new_pathA,new_pathB,stA.st_size);
+//                        if( !(stA.st_size==stB.st_size && (files_have_same_contents(new_pathA,new_pathB,stA.st_size))) ){ //an den exoun idio size kai den exoun idia contents, den einai to idio arxeio, prepei na ta emfanisoume
+////                            listInsert(diffA,new_pathA);
+////                            listInsert(diffB,new_pathB);
+//                            flag = 1;
+//                        }
+//                        else{ //einia idia vale to pathA apo paradoxi
+//                            path = new_pathA;
+//                        }
+//                        listInsert(intersection,path);
                         break;
                     case S_IFLNK:
                         //compare links
 //                        link_pathA = malloc(strlen(new_pathA)+1);
 //                        compare_links(new_pathA,new_pathB,&stA,&stB,diffA,)
+                        flag = compare_links(new_pathA, listDirname(diffA),new_pathB,listDirname(diffB),&stA,&stB) ;
+//                        if(!compare_links(new_pathA, listDirname(diffA),new_pathB,listDirname(diffB),&stA,&stB)){
+//                            listInsert(diffA,new_pathA);
+//                            listInsert(diffB,new_pathB);
+//                        }
                         break;
                     default:
+                        exit(EXIT_FAILURE);
                         break;
                 }
+                if (flag){
+                    path = compare_timespec(&stA.st_mtim,&stB.st_mtim,>)?new_pathA:new_pathB;
+                }
+                else{
+                    path = new_pathA;
+                }
+                listInsert(intersection,path);
             }
             free(new_pathA);
             free(new_pathB);
@@ -303,7 +329,7 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB){
         listInsert(diffA,new_pathA);
         lstat(new_pathA,&stA);
         if ((stA.st_mode&S_IFMT )== S_IFDIR){
-            compare(new_pathA,NULL,diffA,NULL);
+            compare(new_pathA,NULL,diffA,NULL,NULL);
         }
         free(new_pathA);
 //        (*diffA)[ii] = malloc(a[i]->d_reclen);
@@ -314,7 +340,7 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB){
         listInsert(diffB, new_pathB);
         lstat(new_pathB,&stB);
         if ((stB.st_mode&S_IFMT )== S_IFDIR){
-            compare(NULL,new_pathB,NULL,diffB);
+            compare(NULL,new_pathB,NULL,diffB,NULL);
         }
         free(new_pathB);
     }
@@ -346,20 +372,20 @@ char diff(char* dirA, char* dirB){
 //    print_and_free(diffB,lenDiffB,"diffB");
 //    print_and_free(intersection,lenIntr,"intersection"); */
 //   char* link1 = "dirC/dir1/link1";
-    char* link1 = "dirC/dir2/link6";
-//    char* link2 = "dirD/dir1/link1";
-    char* link2 = "dirD/dir2/link6";
-    struct stat st1,st2;
-//    printf()
-    lstat(link1,&st1);
-    lstat(link2,&st2);
-    printf("%d\n",compare_links(link1,"dirC",link2,"dirD",&st1,&st2));
-    return 0;
-
-    listPtr diffA,diffB;
+//    char* link1 = "dirC/dir2/link6";
+////    char* link2 = "dirD/dir1/link1";
+//    char* link2 = "dirD/dir2/link6";
+//    struct stat st1,st2;
+////    printf()
+//    lstat(link1,&st1);
+//    lstat(link2,&st2);
+//    printf("%d\n",compare_links(link1,"dirC",link2,"dirD",&st1,&st2));
+//    return 0;
+    listPtr diffA,diffB,intersection;
     diffA = listInit(dirA);
     diffB = listInit(dirB);
-    compare(dirA,dirB,diffA,diffB);
+    intersection = listInit(NULL);
+    compare(dirA,dirB,diffA,diffB,intersection);
     printf("In %s:\n",dirA);
     listPrint(diffA);
     printf("\nIn %s:\n",dirB);

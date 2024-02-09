@@ -17,6 +17,10 @@ struct list{
     char * dirName;
 };
 
+char* listDirname(listPtr list){
+    return list->dirName;
+}
+
 listPtr listInit(char* dirName){
     listPtr l;
     l=malloc(sizeof(list));

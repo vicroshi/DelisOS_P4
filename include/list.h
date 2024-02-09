@@ -1,6 +1,7 @@
 #ifndef DELISOS_P4_LIST_H
 #define DELISOS_P4_LIST_H
 typedef struct list* listPtr;
+char* listDirname(listPtr);
 //primary list functions
 listPtr listInit(char*);
 void listPrint(listPtr);
