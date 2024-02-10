@@ -286,11 +286,21 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB, listPtr inter
 //                int flag = 0;
                 switch (stA.st_mode&S_IFMT) {
                     case S_IFDIR:
+                        flag = 1;
                         compare(new_pathA,new_pathB,diffA,diffB,interscetion);
                         break;
                     case S_IFREG: //exoun idio name kai eiani regular files. elegxw an exoun idio size kai an ta contents einai ta idia
                         //compare files
                         flag = (stA.st_size==stB.st_size) && files_have_same_contents(new_pathA,new_pathB,stA.st_size);
+                        if (!flag){
+//                     = compare_timespec(&stA.st_mtim,&stB.st_mtim,>);
+                            listInsert(diffA,new_pathA,&stA, compare_timespec(&stA.st_mtim,&stB.st_mtim,>));
+                            listInsert(diffB,new_pathB,&stB,compare_timespec(&stA.st_mtim,&stB.st_mtim,<));
+//                    "dirA/dir1/dir11/dir111/file.txt"
+                        }
+                        else{
+                            listInsert(interscetion,new_pathA,&stA,MERGE);
+                        }
 //                        if( !(stA.st_size==stB.st_size && (files_have_same_contents(new_pathA,new_pathB,stA.st_size))) ){ //an den exoun idio size kai den exoun idia contents, den einai to idio arxeio, prepei na ta emfanisoume
 ////                            listInsert(diffA,new_pathA);
 ////                            listInsert(diffB,new_pathB);
@@ -306,6 +316,15 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB, listPtr inter
 //                        link_pathA = malloc(strlen(new_pathA)+1);
 //                        compare_links(new_pathA,new_pathB,&stA,&stB,diffA,)
                         flag = compare_links(new_pathA, listDirname(diffA),new_pathB,listDirname(diffB),&stA,&stB) ;
+                        if (!flag){
+//                     = compare_timespec(&stA.st_mtim,&stB.st_mtim,>);
+                            listInsert(diffA,new_pathA,&stA, compare_timespec(&stA.st_mtim,&stB.st_mtim,>));
+                            listInsert(diffB,new_pathB,&stB,compare_timespec(&stA.st_mtim,&stB.st_mtim,<));
+//                    "dirA/dir1/dir11/dir111/file.txt"
+                        }
+                        else{
+                            listInsert(interscetion,new_pathA,&stA,MERGE);
+                        }
 //                        if(!compare_links(new_pathA, listDirname(diffA),new_pathB,listDirname(diffB),&stA,&stB)){
 //                            listInsert(diffA,new_pathA);
 //                            listInsert(diffB,new_pathB);
@@ -314,15 +333,6 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB, listPtr inter
                     default:
                         exit(EXIT_FAILURE);
                         break;
-                }
-                if (!flag){
-//                     = compare_timespec(&stA.st_mtim,&stB.st_mtim,>);
-                    listInsert(diffA,new_pathA,&stA, compare_timespec(&stA.st_mtim,&stB.st_mtim,>));
-                    listInsert(diffB,new_pathB,&stB,compare_timespec(&stA.st_mtim,&stB.st_mtim,<));
-//                    "dirA/dir1/dir11/dir111/file.txt"
-                }
-                else{
-                    listInsert(interscetion,new_pathA,&stA,MERGE);
                 }
             }
             free(new_pathA);
@@ -413,8 +423,8 @@ void copy_file(char *source_file_path,char *dest_file_path,mode_t perms,size_t l
 }
 
 
-int merge(char* dirC, listPtr diffA,listPtr diffB,listPtr interscetion){
-    listPtr mergelists[] = {diffA,diffB,interscetion, NULL};
+int merge(char* dirC, listPtr* mergelists){
+//    listPtr mergelists[] = {diffA,diffB,interscetion, NULL};
     ino_t* inodes; //inode array, keeps track of which inodes we have copied
     char** names; //names array
     int count; //array count
@@ -470,11 +480,12 @@ listPtr* diff(char* dirA, char* dirB){
     listPrint(diffA);
     printf("\nIn %s:\n",dirB);
     listPrint(diffB);
-    listDstr(diffA);
-    listDstr(diffB);
-    listPtr* ret = malloc(3);
+//    listDstr(diffA);
+//    listDstr(diffB);
+    listPtr* ret = malloc(4*sizeof(list*));
     ret[0] = diffA;
     ret[1] = diffB;
     ret[2] = interscetion;
+    ret[3] = NULL;
     return ret;
 }

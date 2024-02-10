@@ -41,12 +41,17 @@ listPtr listInit(char* dirName){
     }
     l->head=NULL;
     l->tail=NULL;
-    l->dirName=malloc((strlen(dirName)+1)*sizeof(char));
-    if(l->dirName==NULL){
-        perror("malloc()");
-        exit(1);
+    if(dirName!=NULL){
+        l->dirName=malloc(strlen(dirName)+1);
+        if(l->dirName==NULL){
+            perror("malloc()");
+            exit(1);
+        }
+        strcpy(l->dirName,dirName);
     }
-    strcpy(l->dirName,dirName);
+    else{
+        l->dirName = dirName;
+    }
     l->nlinks_count = 0;
 //    l->count=0;
     return l;
@@ -98,14 +103,15 @@ void listInsert(listPtr l, char *path, struct stat* st, char is_merge){
 }
 
 void listDstr(listPtr l){
-    list_node* p=l->head,*prev;
+    list_node* p,*tmp;
+    p = l->head;
     free(l->dirName);
-    free(l);
     while(p!=NULL){
-        prev=p;
-        p=p->nxt;
-        free(prev->file_path);
-        free(prev);
+        tmp = p;
+        p = p->nxt;
+        free(tmp->file_path);
+        free(tmp);
     }
+    free(l);
 //    return;
 }
