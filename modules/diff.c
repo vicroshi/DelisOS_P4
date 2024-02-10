@@ -15,6 +15,8 @@
 //#include <fts.h>
 #include "diff.h"
 #include "list.h"
+#define MERGE 1
+#define NO_MERGE 0
 int filter(const struct dirent* dir){
     return dir->d_name[0]!='.';
 }
@@ -234,7 +236,7 @@ int compare_links(char* pathA, char* rootA, char* pathB, char* rootB, struct sta
                                         :((a)->tv_sec CMP (b)->tv_sec))
 
 
-void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB, listPtr intersection){
+void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB, listPtr interscetion){
     int lenA = 0,lenB = 0;
     struct dirent** a = NULL;
     struct dirent** b = NULL;
@@ -252,8 +254,9 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB, listPtr inter
         if(strcmp(a[i]->d_name,b[j]->d_name)<0){
             //lenA--;  //allagi sunthikis, to sbinw gia na kserw megethos pinaka gia free meta
             new_pathA = construct_path(pathA,a[i++]->d_name);
-            listInsert(diffA,new_pathA);
+//            listInsert(interscetion,new_pathA);
             lstat(new_pathA,&stA);
+            listInsert(diffA,new_pathA,&stA,MERGE);
             if( (stA.st_mode&S_IFMT) ==S_IFDIR){ //an einai dir, prepei na mpoume na to elegksoume
                 compare(new_pathA, NULL,diffA,NULL,NULL);
             }
@@ -262,8 +265,8 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB, listPtr inter
         else if(strcmp(a[i]->d_name,b[j]->d_name)>0){
            // lenB--;
             new_pathB =  construct_path(pathB,b[j++]->d_name);
-            listInsert(diffB, new_pathB);
             lstat(new_pathB,&stB);
+            listInsert(diffB, new_pathB,&stB,MERGE);
             if ((stB.st_mode&S_IFMT )== S_IFDIR){ //an einai dir, prepei na mpoume na to elegksoume
                 compare(NULL,new_pathB,NULL,diffB,NULL);
             }
@@ -283,7 +286,7 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB, listPtr inter
 //                int flag = 0;
                 switch (stA.st_mode&S_IFMT) {
                     case S_IFDIR:
-                        compare(new_pathA,new_pathB,diffA,diffB,intersection);
+                        compare(new_pathA,new_pathB,diffA,diffB,interscetion);
                         break;
                     case S_IFREG: //exoun idio name kai eiani regular files. elegxw an exoun idio size kai an ta contents einai ta idia
                         //compare files
@@ -296,7 +299,7 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB, listPtr inter
 //                        else{ //einia idia vale to pathA apo paradoxi
 //                            path = new_pathA;
 //                        }
-//                        listInsert(intersection,path);
+//                        listInsert(interscetion,path);
                         break;
                     case S_IFLNK:
                         //compare links
@@ -314,11 +317,13 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB, listPtr inter
                 }
                 if (flag){
                     path = compare_timespec(&stA.st_mtim,&stB.st_mtim,>)?new_pathA:new_pathB;
+                    listInsert(diffA,new_pathA,&stA,NO_MERGE);
+                    listInsert(diffB,new_pathB,&stB,NO_MERGE);
                 }
                 else{
                     path = new_pathA;
                 }
-                listInsert(intersection,path);
+                listInsert(interscetion,path,&stA,MERGE);
             }
             free(new_pathA);
             free(new_pathB);
@@ -326,8 +331,8 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB, listPtr inter
     }
     for (; i<lenA; i++) {
         new_pathA = construct_path(pathA,a[i]->d_name);
-        listInsert(diffA,new_pathA);
         lstat(new_pathA,&stA);
+        listInsert(diffA,new_pathA,&stA,MERGE);
         if ((stA.st_mode&S_IFMT )== S_IFDIR){
             compare(new_pathA,NULL,diffA,NULL,NULL);
         }
@@ -337,8 +342,8 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB, listPtr inter
     }
     for (; j<lenB; j++) {
         new_pathB =  construct_path(pathB,b[j]->d_name);
-        listInsert(diffB, new_pathB);
         lstat(new_pathB,&stB);
+        listInsert(diffB, new_pathB,&stB,MERGE);
         if ((stB.st_mode&S_IFMT )== S_IFDIR){
             compare(NULL,new_pathB,NULL,diffB,NULL);
         }
@@ -350,7 +355,62 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB, listPtr inter
     free(b);
 }
 
-char diff(char* dirA, char* dirB){
+int hash(ino_t key, int i, int m){ //key is the key being hashed, i is the hashing round, m is the number of buckets
+    return key % ((1<<i)*m);
+}
+
+int search_inode(ino_t inode, ino_t* arr, int n){
+    for (int i = 0; i < n; i++) {
+        if (arr[i]==inode){
+            return i;
+        }
+    }
+    return -1;
+}
+
+int merge(char* dirC, listPtr diffA,listPtr diffB,listPtr interscetion){
+
+    listPtr mergelists[] = {diffA,diffB,interscetion, NULL};
+    ino_t* inodes;
+    char** names;
+    int count;
+    list_node* tmp;
+    int idx;
+    for (int i = 0; mergelists[i]!=NULL; i++) {
+        tmp = mergelists[i]->head;
+        count = 0;
+        inodes = malloc(sizeof(ino_t)*mergelists[i]->nlinks_count);
+        names = malloc(mergelists[i]->nlinks_count);
+        while (tmp!=NULL){
+            switch ((tmp->st_mode & S_IFMT)) {
+                case S_IFREG:
+                    if (tmp->st_nlink>1){
+                        if((idx = search_inode(tmp->st_ino,inodes,count))>=0){
+                            link(names[idx],tmp->file_path);
+                        }
+                        else{
+                            //create file
+                            inodes[count++] = tmp->st_ino;
+                            names[count] = tmp->file_path;
+                        }
+
+                    }
+                    break;
+                case S_IFDIR:
+                    //create dirs
+                    break;
+                case S_IFLNK:
+                    //create links
+                    break;
+            }
+
+        }
+        free(inodes);
+        free(names);
+    }
+}
+
+listPtr* diff(char* dirA, char* dirB){
     //dirent api
 
     //kwdikas pou den xrisimopoieitai
@@ -358,7 +418,7 @@ char diff(char* dirA, char* dirB){
     struct dirent** entriesB;
     int lenB = scandir(dirB,&entriesB,filter,alphasort);
     int lenA = scandir(dirA,&entriesA,filter,alphasort);
-    struct dirent** intersection;
+    struct dirent** interscetion;
 //    struct dirent** diffA;
 //    struct dirent** diffB;
     int lenIntr;
@@ -381,19 +441,23 @@ char diff(char* dirA, char* dirB){
 //    lstat(link2,&st2);
 //    printf("%d\n",compare_links(link1,"dirC",link2,"dirD",&st1,&st2));
 //    return 0;
-    listPtr diffA,diffB,intersection;
+    listPtr diffA,diffB,interscetion;
     diffA = listInit(dirA);
     diffB = listInit(dirB);
-    intersection = listInit(NULL);
-    compare(dirA,dirB,diffA,diffB,intersection);
+    interscetion = listInit(NULL);
+    compare(dirA,dirB,diffA,diffB,interscetion);
     printf("In %s:\n",dirA);
     listPrint(diffA);
     printf("\nIn %s:\n",dirB);
     listPrint(diffB);
     listDstr(diffA);
     listDstr(diffB);
-
-
+//    merge(diffA,diffB,interscetion);
+    listPtr ret[3];
+    ret[0] = diffA;
+    ret[1] = diffB;
+    ret[2] = interscetion;
+    return ret;
 
 
     //fts api

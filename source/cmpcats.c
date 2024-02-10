@@ -4,6 +4,7 @@
 int main(int argc, char** argv) {
 
     diff(argv[1],argv[2]);
+    merge(argv[3]);
 //    recursive_traverse("dirB","dirA");
     return 0;
 }

@@ -4,5 +4,7 @@
 
 #ifndef DELISOS_P4_DIFF_H
 #define DELISOS_P4_DIFF_H
-char diff(char*,char*);
+#include "list.h"
+listPtr* diff(char*,char*);
+int merge(char*,listPtr,listPtr,listPtr);
 #endif //DELISOS_P4_DIFF_H
