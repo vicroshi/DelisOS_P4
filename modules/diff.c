@@ -315,15 +315,15 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB, listPtr inter
                         exit(EXIT_FAILURE);
                         break;
                 }
-                if (flag){
-                    path = compare_timespec(&stA.st_mtim,&stB.st_mtim,>)?new_pathA:new_pathB;
-                    listInsert(diffA,new_pathA,&stA,NO_MERGE);
-                    listInsert(diffB,new_pathB,&stB,NO_MERGE);
+                if (!flag){
+//                     = compare_timespec(&stA.st_mtim,&stB.st_mtim,>);
+                    listInsert(diffA,new_pathA,&stA, compare_timespec(&stA.st_mtim,&stB.st_mtim,>));
+                    listInsert(diffB,new_pathB,&stB,compare_timespec(&stA.st_mtim,&stB.st_mtim,<));
+//                    "dirA/dir1/dir11/dir111/file.txt"
                 }
                 else{
-                    path = new_pathA;
+                    listInsert(interscetion,new_pathA,&stA,MERGE);
                 }
-                listInsert(interscetion,path,&stA,MERGE);
             }
             free(new_pathA);
             free(new_pathB);
@@ -355,9 +355,6 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB, listPtr inter
     free(b);
 }
 
-int hash(ino_t key, int i, int m){ //key is the key being hashed, i is the hashing round, m is the number of buckets
-    return key % ((1<<i)*m);
-}
 
 int search_inode(ino_t inode, ino_t* arr, int n){
     for (int i = 0; i < n; i++) {
@@ -368,42 +365,95 @@ int search_inode(ino_t inode, ino_t* arr, int n){
     return -1;
 }
 
-int merge(char* dirC, listPtr diffA,listPtr diffB,listPtr interscetion){
+//dinoume to path sto opoio to arxeio tha antigraftei kai to onoma tou
+void copy_file(char *source_file_path,char *dest_file_path,mode_t perms,size_t len){
+    int fd_source,fd_dest;
+    fd_source=open(source_file_path,O_RDONLY);
+    if(fd_source==-1){
+        perror("open()");
+        exit(1);
+    }
+    fd_dest=open(dest_file_path, O_WRONLY | O_CREAT, (perms & 0777)); //ftiaxnoume to deytero arxeio me ta idia perms tou source file
+    if(fd_dest==-1){
+        perror("open()");
+        exit(1);
+    }
+    ssize_t ret;
+    do {
+        ret = copy_file_range(fd_source,NULL,fd_dest,NULL,len,0);
+        if (ret == -1){
+            perror("copy_file_range");
+            exit(EXIT_FAILURE);
+        }
+        len -= ret;
+    } while (len>0&&ret>0);
 
+//    char buffer;
+//    size_t read_bytes,written_bytes;
+//    read_bytes=read(fd_source,&buffer,1);
+//    if(read_bytes==-1){
+//        perror("read()");
+//        exit(1);
+//    }
+//    while(read_bytes>0){
+//        written_bytes=write(fd_dest,&buffer,1);
+//        if(written_bytes==-1){
+//            perror("write()");
+//            exit(1);
+//        }
+//        read_bytes=read(fd_source,&buffer,1);
+//        if(read_bytes==-1){
+//            perror("read()");
+//            exit(1);
+//        }
+//
+//    }
+    close(fd_source);
+    close(fd_dest);
+}
+
+
+int merge(char* dirC, listPtr diffA,listPtr diffB,listPtr interscetion){
     listPtr mergelists[] = {diffA,diffB,interscetion, NULL};
-    ino_t* inodes;
-    char** names;
-    int count;
+    ino_t* inodes; //inode array, keeps track of which inodes we have copied
+    char** names; //names array
+    int count; //array count
+    int idx; //search index
+    char* buffer;
     list_node* tmp;
-    int idx;
-    for (int i = 0; mergelists[i]!=NULL; i++) {
+    char target[PATH_MAX];
+    for (int i = 0; mergelists[i]!=NULL; i++) { //loop twn listwn
         tmp = mergelists[i]->head;
         count = 0;
         inodes = malloc(sizeof(ino_t)*mergelists[i]->nlinks_count);
         names = malloc(mergelists[i]->nlinks_count);
-        while (tmp!=NULL){
-            switch ((tmp->st_mode & S_IFMT)) {
-                case S_IFREG:
-                    if (tmp->st_nlink>1){
-                        if((idx = search_inode(tmp->st_ino,inodes,count))>=0){
-                            link(names[idx],tmp->file_path);
+        while (tmp!=NULL){ //loop tis listas
+            if(tmp->is_merge){
+                switch ((tmp->st_mode & S_IFMT)) {
+                    case S_IFREG:
+                        if (tmp->st_nlink>1){
+                            if((idx = search_inode(tmp->st_ino,inodes,count))>=0){
+                                link(names[idx],tmp->file_path); //ftiaxnw to path me to dirC
+                            }
+                            else{
+                                //create file
+                                inodes[count] = tmp->st_ino;
+                                names[count] = tmp->file_path; //ftiaxnw to path me to dirC
+                                count++;
+                            }
                         }
-                        else{
-                            //create file
-                            inodes[count++] = tmp->st_ino;
-                            names[count] = tmp->file_path;
-                        }
-
-                    }
-                    break;
-                case S_IFDIR:
-                    //create dirs
-                    break;
-                case S_IFLNK:
-                    //create links
-                    break;
+                        copy_file(tmp->file_path,tmp->file_path,tmp->st_mode,tmp->st_size);
+                        break;
+                    case S_IFDIR:
+                        //create dirs
+                        break;
+                    case S_IFLNK:
+                        //create links
+                        readlink(tmp->file_path,target,tmp->st_size);
+                        symlink(tmp->file_path,target); //alla ftiaxneis ta path me to dirC
+                        break;
+                }
             }
-
         }
         free(inodes);
         free(names);
@@ -411,36 +461,6 @@ int merge(char* dirC, listPtr diffA,listPtr diffB,listPtr interscetion){
 }
 
 listPtr* diff(char* dirA, char* dirB){
-    //dirent api
-
-    //kwdikas pou den xrisimopoieitai
-   /* struct dirent** entriesA;
-    struct dirent** entriesB;
-    int lenB = scandir(dirB,&entriesB,filter,alphasort);
-    int lenA = scandir(dirA,&entriesA,filter,alphasort);
-    struct dirent** interscetion;
-//    struct dirent** diffA;
-//    struct dirent** diffB;
-    int lenIntr;
-    int lenDiffA;
-    int lenDiffB;
-//    cmp_ent(dirA,dirB,entriesA,entriesB,lenA,lenB,
-//            &intersection,&diffA,&diffB,&lenIntr,&lenDiffA,&lenDiffB);
-//    print_and_free(entriesA,lenA,"dirA");
-//    print_and_free(entriesB,lenB,"dirB");
-//    print_and_free(diffA,lenDiffA,"diffA");
-//    print_and_free(diffB,lenDiffB,"diffB");
-//    print_and_free(intersection,lenIntr,"intersection"); */
-//   char* link1 = "dirC/dir1/link1";
-//    char* link1 = "dirC/dir2/link6";
-////    char* link2 = "dirD/dir1/link1";
-//    char* link2 = "dirD/dir2/link6";
-//    struct stat st1,st2;
-////    printf()
-//    lstat(link1,&st1);
-//    lstat(link2,&st2);
-//    printf("%d\n",compare_links(link1,"dirC",link2,"dirD",&st1,&st2));
-//    return 0;
     listPtr diffA,diffB,interscetion;
     diffA = listInit(dirA);
     diffB = listInit(dirB);
@@ -452,168 +472,9 @@ listPtr* diff(char* dirA, char* dirB){
     listPrint(diffB);
     listDstr(diffA);
     listDstr(diffB);
-//    merge(diffA,diffB,interscetion);
-    listPtr ret[3];
+    listPtr* ret = malloc(3);
     ret[0] = diffA;
     ret[1] = diffB;
     ret[2] = interscetion;
     return ret;
-
-
-    //fts api
-    /*char* fts_arg[] = {
-            dirA,
-            dirB,
-            NULL
-    };
-    FTS* ftsA = fts_open(fts_arg,FTS_PHYSICAL,NULL);
-    FTSENT* e;
-    FTSENT* entriesA;
-    FTSENT* entryA;
-    while ((entryA = fts_read(ftsA))){
-        entriesA = fts_children(ftsA,0);
-        if (entriesA){
-            printf("folder:%s\n",entryA->fts_name);
-            print_fts(entriesA);
-        }
-    }*/
-    return 1;
 }
-
-
-
-//#################################################################################################################################################
-//#################################################################################################################################################
-///synartiseis apo proigoumeno version
-
-
-
-
-
-
-
-/*int cmp_dir(char* pathA, char* pathB *//**//*){
-    struct dirent** entriesA;
-    struct dirent** entriesB;
-    int lenA = scandir(pathA,entriesA,filter,alphasort);
-    int lenB = scandir(pathB,entriesB,filter,alphasort);
-
-}*/
-
-
-//void cmp_ent(char* pathA, char* pathB, struct dirent** a, struct dirent**b, int a_len, int b_len, struct dirent*** intersection,struct dirent*** diffA,struct dirent*** diffB,int* i_len, int* dA_len, int* dB_len){
-//    int max = (a_len > b_len ? a_len : b_len);
-//    *intersection = malloc(sizeof(struct dirent*) * max);
-//    *diffA = malloc(sizeof(struct dirent*) * a_len);
-//    *diffB = malloc(sizeof(struct dirent*) * b_len);
-//    int i = 0, j = 0, k = 0, ii = 0, jj = 0;
-//    struct stat stA,stB;
-//    char* cwd;
-//    while (i < a_len && j < b_len){
-////        printf("i=%d j=%d k=%d ii=%d jj=%d\n",i,j,k,ii,jj);
-//        if(strcmp(a[i]->d_name,b[j]->d_name)<0){
-//            (*diffA)[ii] = malloc(a[i]->d_reclen);
-//            memcpy((*diffA)[ii++],a[i],a[i]->d_reclen);
-//            i++;
-//        }
-//        else if(strcmp(a[i]->d_name,b[j]->d_name)>0){
-//            (*diffB)[jj] = malloc(b[i]->d_reclen);
-//            memcpy((*diffB)[jj++],b[j],b[j]->d_reclen);
-//            j++;
-//        }
-//        else{
-//            /*
-//             * stat gia elegxo tipou kai inode klp
-//             * switch gia to type
-//             * kai meta compares
-//             */
-//            cwd = get_current_dir_name();
-//            chdir(pathA);
-//            lstat(a[i]->d_name,&stA);
-//            printf("%s %ld\n",a[i]->d_name,stA.st_ino);
-//            chdir(cwd);
-//            chdir(pathB);
-//            lstat(b[j]->d_name,&stB);
-//            printf("%s %ld\n",b[j]->d_name,stB.st_ino);
-//            mode_t typeA = stA.st_mode & S_IFMT;
-//            mode_t typeB = stB.st_mode & S_IFMT;
-//            if (typeA == typeB){
-//                switch (typeA) {
-//                    case S_IFDIR:
-//                        //cmpdir
-//                        break;
-//                    case S_IFREG:
-//                        //cmpfile
-//                        break;
-//                    case S_IFLNK:
-//                        //cmplink
-//                        break;
-//                    default:
-//                        break;
-//                }
-//            }
-//            else{
-//                //einai diaforetika valta sto diff
-//            }
-//
-////            lstat()
-////            lstat()
-//            (*intersection)[k] = malloc(a[i]->d_reclen);
-//            memcpy((*intersection)[k++],a[i],a[i]->d_reclen);
-//            i++;
-//            j++;
-//        }
-//    }
-//    for (; i < a_len; i++) {
-////        printf("i=%d j=%d k=%d ii=%d jj=%d\n",i,j,k,ii,jj);
-//        (*diffA)[ii] = malloc(a[i]->d_reclen);
-//        memcpy((*diffA)[ii++],a[i],a[i]->d_reclen);
-//    }
-//    for (; j < b_len; j++) {
-////        printf("i=%d j=%d k=%d ii=%d jj=%d\n",i,j,k,ii,jj);
-//        (*diffB)[jj] = malloc(b[j]->d_reclen);
-//        memcpy((*diffB)[jj++],b[j],b[j]->d_reclen);
-//    }
-//    //isws kai na mh xreiazetai kan den glittwneis xwros
-////    *diffA = realloc(*diffA,ii*sizeof(struct dirent*));
-////    *diffB = realloc(*diffB,jj*sizeof(struct dirent*));
-////    *intersection = realloc(*intersection,k*sizeof(struct dirent*));
-//    *i_len = k;
-//    *dA_len = ii;
-//    *dB_len = jj;
-//}
-
-void print_and_free(struct dirent ** arr, int len, char* name){
-    printf("%s: ",name);
-    for (int i = 0; i < len; i++) {
-        printf("%s ",arr[i]->d_name);
-        free(arr[i]);
-    }
-    free(arr);
-    putchar('\n');
-}
-
-//void print_fts(FTSENT* list){
-//    FTSENT* tmp = list;
-//    char* type;
-//
-//    while(tmp){
-//        switch (tmp->fts_info) {
-//            case FTS_D:
-//                type = "directory";
-//                break;
-//            case FTS_F:
-//                type = "file";
-//                break;
-//            case FTS_SL:
-//                type = "softlink";
-//                break;
-//            default:
-//                type = "unknown";
-//                break;
-//        }
-//        printf("name: %s, path: %s, access_path: %s, level: %d, type: %s\n",tmp->fts_name, tmp->fts_path,tmp->fts_accpath,tmp->fts_level,type);
-//
-//        tmp = tmp->fts_link;
-//    }
-//}
