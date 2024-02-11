@@ -296,6 +296,10 @@ int compare_links(char* pathA, char* rootA, char* pathB, char* rootB, struct sta
 //            printf("targetA: %s\ntargetB: %s\n", targetA, targetB);
 //            free(target_dirA);
 //            free(target_dirB);
+            free(link_pathA);
+            free(link_pathB);
+            free(target_pathA);
+            free(target_pathB);
             return 0;
         }
     }
