@@ -258,11 +258,15 @@ int compare_links(char* pathA, char* rootA, char* pathB, char* rootB, struct sta
 //            free(target_dirB);
             struct stat st_targA, st_targB;
 //            target_pathA = construct_path(target_dirA, target_baseA);
-            lstat(target_pathA, &st_targA);
+            if(lstat(target_pathA, &st_targA)==-1){
+                return 0;
+            }
 //            target_pathB = construct_path(target_dirB, target_baseB);
 //            free(target_dirA);
 //            free(target_dirB);
-            lstat(target_pathB, &st_targB);
+            if(lstat(target_pathB, &st_targB)==-1){
+                return 0;
+            }
             if ((st_targA.st_mode & S_IFMT) == (st_targB.st_mode & S_IFMT))
                 switch (st_targA.st_mode & S_IFMT) {
                     case S_IFREG:
