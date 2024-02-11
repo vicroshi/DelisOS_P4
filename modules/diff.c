@@ -122,15 +122,59 @@ char* absolute_dirname(char* link,char* target){
 }
 
 
+void canonicalize_path(char *path) {
+    char result[PATH_MAX];
+    char *token, *saveptr;
+
+    // Initialize result with an empty string
+    result[0] = '\0';
+
+    // Tokenize the input path based on '/'
+    token = strtok_r(path, "/", &saveptr);
+
+    while (token != NULL) {
+        if (strcmp(token, "..") == 0) {
+            // If token is '..', pop the last component from result
+            char *lastSlash = strrchr(result, '/');
+            if (lastSlash != NULL) {
+                *(lastSlash) = '\0';
+            }
+        } else if (strcmp(token, ".") != 0 && strlen(token) > 0) {
+            // Ignore '.' and add other components to result
+            strcat(result, "/");
+            strcat(result, token);
+        }
+
+        // Get the next token
+        token = strtok_r(NULL, "/", &saveptr);
+    }
+
+    // Copy the canonicalized path back to the original buffer
+    if (path[0]=='/'){
+        strcpy(path, result);
+    }
+    else{
+        strcpy(path, result+1);
+    }
+
+//    path[strlen(result)-1] = '\0';
+}
+
+
+
 int compare_links(char* pathA, char* rootA, char* pathB, char* rootB, struct stat* stA, struct stat* stB) {
-    char link_pathA[PATH_MAX];
-    char link_pathB[PATH_MAX];
+//    char link_pathA[PATH_MAX];
+//    char link_pathB[PATH_MAX];
     char targetA[PATH_MAX];
     char targetB[PATH_MAX];
-    strcpy(link_pathA, pathA);
+//    strcpy(link_pathA, pathA);
 //                        link_pathB = malloc(strlen(new_pathB)+1);
-    strcpy(link_pathB, pathB);
+//    strcpy(link_pathB, pathB);
+    char* link_pathA,* link_pathB;
+    link_pathA = strdup(pathA);
+    link_pathB = strdup(pathB);
     int flag = 1;
+    putchar('\n');
     while (flag) {
         char *target_pathA;
         char *target_pathB;
@@ -142,6 +186,8 @@ int compare_links(char* pathA, char* rootA, char* pathB, char* rootB, struct sta
         char *link_dirA;
         char *link_dirB;
         targetA[stA->st_size] = '\0';
+        printf("linkpaths:%s %s\n",link_pathA,link_pathB);
+        printf("paths:%s %s\n",pathA,pathB);
         nbytesA = readlink(link_pathA, targetA, stA->st_size + 1);
         targetA[nbytesA] = '\0';
 //        printf("nbytesA = %d\n", nbytesA);
@@ -157,8 +203,15 @@ int compare_links(char* pathA, char* rootA, char* pathB, char* rootB, struct sta
 //        else{
 //            target_dirA = dirname(targetA);
 //        }
-        target_dirA = absolute_dirname(link_pathA, targetA);
+//        target_dirA = absolute_dirname(link_pathA, targetA);
         target_baseA = strrchr(targetA, '/');
+        if (targetA[0] != '/'){
+            target_pathA = construct_path(dirname(link_pathA),targetA);
+        }
+        else{
+            target_pathA = strdup(targetA);
+        }
+        canonicalize_path(target_pathA);
         if(target_baseA == NULL){
             target_baseA = targetA;
         }
@@ -176,7 +229,15 @@ int compare_links(char* pathA, char* rootA, char* pathB, char* rootB, struct sta
         }
 //        printf("targetA = %s\n",targetA);
 //        printf("targetB = %s\n",targetB);
-        target_dirB = absolute_dirname(link_pathB, targetB); //needs free
+//        printf("paths: %s %s\n",link_pathA,link_pathB);
+        printf("targets: %s %s\n",targetA,targetB);
+        if (targetB[0] != '/'){
+            target_pathB = construct_path(dirname(link_pathB),targetB);
+        }
+        else{
+            target_pathB = strdup(targetB);
+        }
+        canonicalize_path(target_pathB);
         target_baseB = strrchr(targetB, '/'); // doesn't need free
         if (target_baseB == NULL){
             target_baseB = targetB;
@@ -187,15 +248,19 @@ int compare_links(char* pathA, char* rootA, char* pathB, char* rootB, struct sta
 //        printf("dirname: %s basename: %s\n", strstr(target_dirB,rootB)+ strlen(rootB),target_baseB);
 //        printf("dirname: %s basename: %s\n", strstr(target_dirA,rootA)+ strlen(rootA),target_baseA);
 //        printf("dirname: %s basename: %s\n", target_dirA,targetA);
-        if (!strcmp(strstr(target_dirA,rootA)+ strlen(rootA), strstr(target_dirB,rootB)+ strlen(rootB)) && !strcmp(target_baseA, target_baseB)) {
+//        if (!strcmp(strstr(target_dirA,rootA)+ strlen(rootA), strstr(target_dirB,rootB)+ strlen(rootB)) && !strcmp(target_baseA, target_baseB)) {
+//        printf("paths: %s %s\n",pathA,pathB);
+        printf("%s %s %d\n",target_pathA,target_pathB,strcmp(strstr(target_pathA,rootA)+ strlen(rootA),strstr(target_pathB,rootB)+strlen(rootB)));
+        if (!strcmp(strstr(target_pathA,rootA)+ strlen(rootA),strstr(target_pathB,rootB)+strlen(rootB))) {
+//            printf("here")
 //            free(target_dirA);
 //            free(target_dirB);
             struct stat st_targA, st_targB;
-            target_pathA = construct_path(target_dirA, target_baseA);
+//            target_pathA = construct_path(target_dirA, target_baseA);
             lstat(target_pathA, &st_targA);
-            target_pathB = construct_path(target_dirB, target_baseB);
-            free(target_dirA);
-            free(target_dirB);
+//            target_pathB = construct_path(target_dirB, target_baseB);
+//            free(target_dirA);
+//            free(target_dirB);
             lstat(target_pathB, &st_targB);
             if ((st_targA.st_mode & S_IFMT) == (st_targB.st_mode & S_IFMT))
                 switch (st_targA.st_mode & S_IFMT) {
@@ -203,16 +268,20 @@ int compare_links(char* pathA, char* rootA, char* pathB, char* rootB, struct sta
 //                        flag = 0;
                         flag = (st_targA.st_size == st_targB.st_size) &&
                                files_have_same_contents(target_pathA, target_pathB, st_targA.st_size);
+                        free(link_pathA);
+                        free(link_pathB);
                         free(target_pathA);
                         free(target_pathB);
                         return flag;
                     case S_IFLNK:
 //                                        free(link_pathA);
 //                                        link_pathA = malloc(strlen(target_pathA)+1);
-                        strcpy(link_pathA, target_pathA);
+                        free(link_pathA);
+                        link_pathA = strdup(target_pathA);
 //                                        free(link_pathB);
 //                                        link_pathB = malloc(strlen(target_pathB)+1);
-                        strcpy(link_pathB, target_pathB);
+                        free(link_pathB);
+                        link_pathB = strdup(target_pathB);
                         free(target_pathA);
                         free(target_pathB);
                         continue;
@@ -224,8 +293,8 @@ int compare_links(char* pathA, char* rootA, char* pathB, char* rootB, struct sta
         else {
 //            printf("targetA_size: %d\ntargetB_size: %d\n", stA->st_size, stB->st_size);
 //            printf("targetA: %s\ntargetB: %s\n", targetA, targetB);
-            free(target_dirA);
-            free(target_dirB);
+//            free(target_dirA);
+//            free(target_dirB);
             return 0;
         }
     }
