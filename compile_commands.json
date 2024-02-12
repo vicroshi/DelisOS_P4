@@ -1,0 +1,62 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-g",
+      "-Wall",
+      "-Iinclude",
+      "-c",
+      "-o",
+      "source/cmpcats.o",
+      "source/cmpcats.c"
+    ],
+    "directory": "/home/vic/codes/DelisOS_P4",
+    "file": "/home/vic/codes/DelisOS_P4/source/cmpcats.c",
+    "output": "/home/vic/codes/DelisOS_P4/source/cmpcats.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-g",
+      "-Wall",
+      "-Iinclude",
+      "-c",
+      "-o",
+      "modules/diff.o",
+      "modules/diff.c"
+    ],
+    "directory": "/home/vic/codes/DelisOS_P4",
+    "file": "/home/vic/codes/DelisOS_P4/modules/diff.c",
+    "output": "/home/vic/codes/DelisOS_P4/modules/diff.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-g",
+      "-Wall",
+      "-Iinclude",
+      "-c",
+      "-o",
+      "modules/list.o",
+      "modules/list.c"
+    ],
+    "directory": "/home/vic/codes/DelisOS_P4",
+    "file": "/home/vic/codes/DelisOS_P4/modules/list.c",
+    "output": "/home/vic/codes/DelisOS_P4/modules/list.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-g",
+      "-Wall",
+      "-Iinclude",
+      "-c",
+      "-o",
+      "modules/path.o",
+      "modules/path.c"
+    ],
+    "directory": "/home/vic/codes/DelisOS_P4",
+    "file": "/home/vic/codes/DelisOS_P4/modules/path.c",
+    "output": "/home/vic/codes/DelisOS_P4/modules/path.o"
+  }
+]
