@@ -373,6 +373,7 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB, listPtr inter
                 switch (stA.st_mode&S_IFMT) {
                     case S_IFDIR:
                         flag = 1;
+                        listInsert(interscetion,new_pathA, &stA,MERGE);
                         compare(new_pathA,new_pathB,diffA,diffB,interscetion);
                         break;
                     case S_IFREG: //exoun idio name kai eiani regular files. elegxw an exoun idio size kai an ta contents einai ta idia
@@ -586,8 +587,9 @@ int merge(char* dirC, listPtr* mergelists){
                         break;
                     case S_IFLNK:
                         //create links
-                        readlink(tmp->file_path,target,tmp->st_size);
-                        symlink(merge_path,target); //alla ftiaxneis ta path me to dirC
+                        readlink(tmp->file_path,target,tmp->st_size+1);
+                        target[tmp->st_size] = '\0';
+                        symlink(target,merge_path); //alla ftiaxneis ta path me to dirC
                         break;
                 }
                 free(merge_path);
