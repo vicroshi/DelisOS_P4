@@ -79,3 +79,11 @@ touch dirHardB/A
 ln dirHardB/A dirHardB/F
 ln dirHardB/A dirHardB/G
 
+mkdir dirHardC
+touch dirHardC/A
+ln dirHardC/A dirHardC/C.txt
+
+mkdir dirHardD
+touch dirHardD/A
+touch dirHardD/C.txt
+

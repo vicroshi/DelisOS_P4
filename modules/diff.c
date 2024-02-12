@@ -16,23 +16,13 @@
 //#include <fts.h>
 #include "diff.h"
 #include "list.h"
+#include "path.h"
 #define MERGE 1
 #define NO_MERGE 0
 int filter(const struct dirent* dir){
     return dir->d_name[0]!='.';
 }
 
-char* construct_path(char* path,char* name){
-    char *new_path=malloc(strlen(path)+strlen(name)+2);
-    if(new_path==NULL){
-        perror("malloc()");
-        exit(1);
-    }
-    strcpy(new_path,path);
-    strcat(new_path,"/");
-    strcat(new_path,name);
-    return new_path;
-}
 
 char* construct_relative_path(char *path){//apo to full path, kratame mono to path mesa apo to folder
     char *relative_path;
@@ -123,43 +113,6 @@ char* absolute_dirname(char* link,char* target){
 }
 
 
-void canonicalize_path(char *path) {
-    char result[PATH_MAX];
-    char *token, *saveptr;
-
-    // Initialize result with an empty string
-    result[0] = '\0';
-
-    // Tokenize the input path based on '/'
-    token = strtok_r(path, "/", &saveptr);
-
-    while (token != NULL) {
-        if (strcmp(token, "..") == 0) {
-            // If token is '..', pop the last component from result
-            char *lastSlash = strrchr(result, '/');
-            if (lastSlash != NULL) {
-                *(lastSlash) = '\0';
-            }
-        } else if (strcmp(token, ".") != 0 && strlen(token) > 0) {
-            // Ignore '.' and add other components to result
-            strcat(result, "/");
-            strcat(result, token);
-        }
-
-        // Get the next token
-        token = strtok_r(NULL, "/", &saveptr);
-    }
-
-    // Copy the canonicalized path back to the original buffer
-    if (path[0]=='/'){
-        strcpy(path, result);
-    }
-    else{
-        strcpy(path, result+1);
-    }
-
-//    path[strlen(result)-1] = '\0';
-}
 
 
 
@@ -522,30 +475,14 @@ void copy_file(char *source_file_path,char *dest_file_path,mode_t perms,size_t l
 }
 
 
-char* substitute_str(char* haystack,char* needle, char* sub){
-    char result[PATH_MAX];
-    result[0] = '\0';
-    char* str = strstr(haystack,needle);
-    if (str == NULL){
-        exit(EXIT_FAILURE);
-    }
-    str+= strlen(needle);
-    strcat(result,sub);
-    strcat(result,str);
-    char* ret = malloc(strlen(result)+1);
-    strcpy(ret,result);
-//    printf("strsub: %s\n",ret);
-//    printf("haystack: %s\n",haystack);
-//    printf("needle: %s\n",needle);
-//    printf("result: %s\n",result);
-//    printf("str: %s\n",str);
-    return ret;
 
-}
 
 int merge(char* dirC, listPtr* mergelists){
 //    listPtr mergelists[] = {diffA,diffB,interscetion, NULL};
-    mkdir(dirC,0777);
+    if (mkdir(dirC,0777)==-1){
+        perror("mkdir");
+        exit(EXIT_FAILURE);
+    }
     ino_t* inodes; //inode array, keeps track of which inodes we have copied
     char** names; //names array
     int count=0; //array count
@@ -567,7 +504,11 @@ int merge(char* dirC, listPtr* mergelists){
 //        names = malloc(mergelists[i]->nlinks_count);
         while (tmp!=NULL){ //loop tis listas
             if(tmp->is_merge){
-                merge_path = substitute_str(tmp->file_path,mergelists[i]->dirName,dirC);
+                merge_path = substitute_path(tmp->file_path,mergelists[i]->dirName,dirC);
+                if (merge_path==NULL){
+                    tmp = tmp->nxt;
+                    continue;
+                }
                 switch ((tmp->st_mode & S_IFMT)) {
                     case S_IFREG:
                         if (tmp->st_nlink>1){
@@ -579,7 +520,7 @@ int merge(char* dirC, listPtr* mergelists){
                                 inodes[count] = tmp->st_inoA;
                                 names[count] = strdup(merge_path); //ftiaxnw to path me to dirC
                                 count++;
-                                if (tmp->st_inoB != 0 && search_inode(tmp->st_inoB,inodes,count)){
+                                if (tmp->st_inoB != 0 && search_inode(tmp->st_inoB,inodes,count)>=0 ){
                                     inodes[count] = tmp->st_inoB;
                                     names[count] = strdup(merge_path);
                                     count++;
