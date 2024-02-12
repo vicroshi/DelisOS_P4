@@ -4,32 +4,9 @@
 #include <string.h>
 #include <sys/stat.h>
 #include "list.h"
-//typedef struct list_node list_node;
-////typedef struct list_node* list_node*;
-//struct list_node{
-//    char *file_path;
-//    ino_t st_ino;
-//    mode_t st_mode;
-//    nlink_t st_nlink;
-//    off_t st_size;
-//    char is_merge;
-////    struct stat* st; //xreiazetai gia to merge
-//    list_node *nxt;
-//};
-//typedef struct list list;
-//struct list{
-//    list_node* head,*tail; //kratame ton arxiko kai ton teliko kombo tis listas
-//    char * dirName;
-////    int count;
-//    int nlinks_count;
-//};
 
 char* listDirname(listPtr list){
     return list->dirName;
-}
-
-int listNlinksCount(listPtr list){
-    return list->nlinks_count;
 }
 
 listPtr listInit(char* dirName){
@@ -53,7 +30,6 @@ listPtr listInit(char* dirName){
         l->dirName = dirName;
     }
     l->nlinks_count = 0;
-//    l->count=0;
     return l;
 }
 
@@ -63,7 +39,6 @@ void listPrint(listPtr l){
         printf("%s\n",p->file_path+strlen(l->dirName)+1); //+1 gia na min ektypwthei kai to '/'
         p=p->nxt;
     }
-//    return;
 }
 
 list_node* listInsert(listPtr l, char *path, struct stat* st, char is_merge){
@@ -111,5 +86,4 @@ void listDstr(listPtr l){
         free(tmp);
     }
     free(l);
-//    return;
 }
