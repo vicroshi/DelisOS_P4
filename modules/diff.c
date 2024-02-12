@@ -559,7 +559,6 @@ int merge(char* dirC, listPtr* mergelists){
     }
     inodes = malloc(sizeof(ino_t)*len);
     names = malloc(sizeof(char*)*len);
-    printf("len = %d\n",len);
     char* merge_path;
     for (int i = 0; mergelists[i]!=NULL; i++) { //loop twn listwn
         tmp = mergelists[i]->head;
