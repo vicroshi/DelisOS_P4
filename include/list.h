@@ -5,7 +5,8 @@ typedef struct list_node list_node;
 //typedef struct list_node* list_node*;
 struct list_node{
     char *file_path;
-    ino_t st_ino;
+    ino_t st_inoA;
+    ino_t st_inoB;
     mode_t st_mode;
     nlink_t st_nlink;
     off_t st_size;
@@ -27,7 +28,7 @@ int listNlinksCount(listPtr);
 listPtr listInit(char*);
 void listPrint(listPtr);
 //void listPrintall(listPtr );
-void listInsert(listPtr , char *, struct stat*, char);
+list_node* listInsert(listPtr , char *, struct stat*, char);
 void listDstr(listPtr);
 //int list_no_of_entries(listPtr );
 #endif //DELISOS_P4_LIST_H

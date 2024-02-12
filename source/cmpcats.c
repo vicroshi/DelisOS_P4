@@ -6,7 +6,7 @@ int main(int argc, char** argv) {
 //    printf("%d %d\n", strlen(argv[1]),strlen(argv[2]));
 //    return 0;
     listPtr* mergeLists = diff(argv[1],argv[2]);
-//    merge(argv[3],mergeLists);
+    merge(argv[3],mergeLists);
     for (int i = 0; mergeLists[i]!=NULL; i++) {
         listDstr(mergeLists[i]);
     }

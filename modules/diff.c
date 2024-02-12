@@ -385,7 +385,10 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB, listPtr inter
 //                    "dirA/dir1/dir11/dir111/file.txt"
                         }
                         else{
-                            listInsert(interscetion,new_pathA,&stA,MERGE);
+                            list_node* node = listInsert(interscetion,new_pathA,&stA,MERGE);
+                            if (stB.st_nlink){
+                                node->st_inoB = stB.st_ino;
+                            }
                         }
 //                        if( !(stA.st_size==stB.st_size && (files_have_same_contents(new_pathA,new_pathB,stA.st_size))) ){ //an den exoun idio size kai den exoun idia contents, den einai to idio arxeio, prepei na ta emfanisoume
 ////                            listInsert(diffA,new_pathA);
@@ -466,11 +469,13 @@ void copy_file(char *source_file_path,char *dest_file_path,mode_t perms,size_t l
     int fd_source,fd_dest;
     fd_source=open(source_file_path,O_RDONLY);
     if(fd_source==-1){
+//        printf("%s ",source_file_path);
         perror("open()");
         exit(1);
     }
     fd_dest=open(dest_file_path, O_WRONLY | O_CREAT, (perms & 0777)); //ftiaxnoume to deytero arxeio me ta idia perms tou source file
     if(fd_dest==-1){
+        printf("%s ",dest_file_path);
         perror("open()");
         exit(1);
     }
@@ -512,20 +517,30 @@ void copy_file(char *source_file_path,char *dest_file_path,mode_t perms,size_t l
 char* substitute_str(char* haystack,char* needle, char* sub){
     char result[PATH_MAX];
     result[0] = '\0';
-    char* str = strstr(haystack,needle)+strlen(needle);
+    char* str = strstr(haystack,needle);
+    if (str == NULL){
+        exit(EXIT_FAILURE);
+    }
+    str+= strlen(needle);
     strcat(result,sub);
     strcat(result,str);
-    char* ret = malloc(strlen(result))+1;
+    char* ret = malloc(strlen(result)+1);
     strcpy(ret,result);
+//    printf("strsub: %s\n",ret);
+//    printf("haystack: %s\n",haystack);
+//    printf("needle: %s\n",needle);
+//    printf("result: %s\n",result);
+//    printf("str: %s\n",str);
     return ret;
 
 }
 
 int merge(char* dirC, listPtr* mergelists){
 //    listPtr mergelists[] = {diffA,diffB,interscetion, NULL};
+    mkdir(dirC,0777);
     ino_t* inodes; //inode array, keeps track of which inodes we have copied
     char** names; //names array
-    int count; //array count
+    int count=0; //array count
     int idx; //search index
     char* buffer;
     list_node* tmp;
@@ -536,6 +551,7 @@ int merge(char* dirC, listPtr* mergelists){
     }
     inodes = malloc(sizeof(ino_t)*len);
     names = malloc(sizeof(char*)*len);
+    printf("len = %d\n",len);
     char* merge_path;
     for (int i = 0; mergelists[i]!=NULL; i++) { //loop twn listwn
         tmp = mergelists[i]->head;
@@ -548,14 +564,19 @@ int merge(char* dirC, listPtr* mergelists){
                 switch ((tmp->st_mode & S_IFMT)) {
                     case S_IFREG:
                         if (tmp->st_nlink>1){
-                            if((idx = search_inode(tmp->st_ino,inodes,count))>=0){
+                            if((idx = search_inode(tmp->st_inoA,inodes,count))>=0){
                                 link(names[idx],merge_path); //ftiaxnw to path me to dirC
                             }
                             else{
                                 //create file
-                                inodes[count] = tmp->st_ino;
-                                names[count] = tmp->file_path; //ftiaxnw to path me to dirC
+                                inodes[count] = tmp->st_inoA;
+                                names[count] = strdup(merge_path); //ftiaxnw to path me to dirC
                                 count++;
+                                if (tmp->st_inoB != 0 && search_inode(tmp->st_inoB,inodes,count)){
+                                    inodes[count] = tmp->st_inoB;
+                                    names[count] = strdup(merge_path);
+                                    count++;
+                                }
                             }
                         }
                         copy_file(tmp->file_path,merge_path,tmp->st_mode,tmp->st_size);
@@ -571,9 +592,13 @@ int merge(char* dirC, listPtr* mergelists){
                 }
                 free(merge_path);
             }
+            tmp = tmp->nxt;
         }
     }
     free(inodes);
+    for (int i = 0; i < count; i++) {
+        free(names[i]);
+    }
     free(names);
 }
 
@@ -584,7 +609,7 @@ listPtr* diff(char* dirA, char* dirB){
     listPtr diffA,diffB,interscetion;
     diffA = listInit(dirA);
     diffB = listInit(dirB);
-    interscetion = listInit(NULL);
+    interscetion = listInit(dirA);
     compare(dirA,dirB,diffA,diffB,interscetion);
     printf("In %s:\n",dirA);
     listPrint(diffA);
@@ -593,9 +618,9 @@ listPtr* diff(char* dirA, char* dirB){
 //    listDstr(diffA);
 //    listDstr(diffB);
     listPtr* ret = malloc(4*sizeof(list*));
-    ret[0] = diffA;
-    ret[1] = diffB;
-    ret[2] = interscetion;
+    ret[0] = interscetion;
+    ret[1] = diffA;
+    ret[2] = diffB;
     ret[3] = NULL;
     return ret;
 }

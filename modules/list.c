@@ -66,7 +66,7 @@ void listPrint(listPtr l){
 //    return;
 }
 
-void listInsert(listPtr l, char *path, struct stat* st, char is_merge){
+list_node* listInsert(listPtr l, char *path, struct stat* st, char is_merge){
     list_node *new;
     new=malloc(sizeof(list_node));
     if(new==NULL){
@@ -83,7 +83,8 @@ void listInsert(listPtr l, char *path, struct stat* st, char is_merge){
     new->st_mode = st->st_mode;
     new->st_size = st->st_size;
     new->is_merge = is_merge;
-    new->st_ino = st->st_ino;
+    new->st_inoA = st->st_ino;
+    new->st_inoB = 0;
     if(st->st_nlink>1){
         l->nlinks_count++;
     }
@@ -96,10 +97,7 @@ void listInsert(listPtr l, char *path, struct stat* st, char is_merge){
         l->tail->nxt=new; //ton kanoume to neo akro
         l->tail=new;
     }
-
-
-
-//    return;
+    return new;
 }
 
 void listDstr(listPtr l){
