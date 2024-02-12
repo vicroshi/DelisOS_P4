@@ -381,14 +381,21 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB, listPtr inter
                         flag = (stA.st_size==stB.st_size) && files_have_same_contents(new_pathA,new_pathB,stA.st_size);
                         if (!flag){
 //                     = compare_timespec(&stA.st_mtim,&stB.st_mtim,>);
-                            listInsert(diffA,new_pathA,&stA, compare_timespec(&stA.st_mtim,&stB.st_mtim,>));
+                            listInsert(diffA,new_pathA,&stA, compare_timespec(&stA.st_mtim,&stB.st_mtim,>=));
                             listInsert(diffB,new_pathB,&stB,compare_timespec(&stA.st_mtim,&stB.st_mtim,<));
 //                    "dirA/dir1/dir11/dir111/file.txt"
                         }
                         else{
-                            list_node* node = listInsert(interscetion,new_pathA,&stA,MERGE);
-                            if (stB.st_nlink){
-                                node->st_inoB = stB.st_ino;
+                            if ((stA.st_nlink==1 && stB.st_nlink>1)||(stB.st_nlink==1 && stA.st_nlink>1)){
+                                listInsert(diffA,new_pathA,&stA,stA.st_nlink==1);
+                                listInsert(diffB,new_pathB,&stB,stB.st_nlink==1);
+//                                listInsert(diffB)
+                            }
+                            else{
+                                list_node* node = listInsert(interscetion,new_pathA,&stA,MERGE);
+                                if (stB.st_nlink>1){
+                                    node->st_inoB = stB.st_ino;
+                                }
                             }
                         }
 //                        if( !(stA.st_size==stB.st_size && (files_have_same_contents(new_pathA,new_pathB,stA.st_size))) ){ //an den exoun idio size kai den exoun idia contents, den einai to idio arxeio, prepei na ta emfanisoume
@@ -578,12 +585,16 @@ int merge(char* dirC, listPtr* mergelists){
                                     names[count] = strdup(merge_path);
                                     count++;
                                 }
+                                copy_file(tmp->file_path,merge_path,tmp->st_mode,tmp->st_size);
                             }
                         }
-                        copy_file(tmp->file_path,merge_path,tmp->st_mode,tmp->st_size);
+                        else{
+                            copy_file(tmp->file_path,merge_path,tmp->st_mode,tmp->st_size);
+                        }
                         break;
                     case S_IFDIR:
                         //create dirs
+                        mkdir(merge_path,0777);
                         break;
                     case S_IFLNK:
                         //create links
