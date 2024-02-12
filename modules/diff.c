@@ -19,25 +19,12 @@
 #include "path.h"
 #define MERGE 1
 #define NO_MERGE 0
+//sunartisi pou pairnei i scandir gia na min epistrepsei ta entries "." kai ".."
 int filter(const struct dirent* dir){
     return dir->d_name[0]!='.';
 }
-
-
-char* construct_relative_path(char *path){//apo to full path, kratame mono to path mesa apo to folder
-    char *relative_path;
-    int index;
-    for(index=0;index < strlen(path);index++) if(path[index++]=='/') break; //mexri to prwto '/' pou tha broume, ++ gia na pame ston xaraktira META to '/'
-    relative_path=malloc((strlen(path)-index+1)*sizeof(char));
-    if(relative_path==NULL){
-        perror("malloc()");
-        exit(1);
-    }
-    memcpy(relative_path,path+index,strlen(path)-index+1); //+1 gia to terminating character
-    return relative_path;
-}
-
-//dinontas 2 paths arxeiwn, elegxw an exoun idio size kai idia contents
+//dinontas 2 paths arxeiwn, elegxw an exoun idia contents.
+//i sunartisi tha klithei mono an exoun idio megethos, gi auto kai pernaw mono ena size san orisma
 int files_have_same_contents(char *filepathA,char*filepathB,size_t file_size){
     char a,b;
     int fd1,fd2;
@@ -72,119 +59,42 @@ int files_have_same_contents(char *filepathA,char*filepathB,size_t file_size){
     return 1;
 }
 
-//#define dirname my_dirname
-
-char* absolute_dirname(char* link,char* target){
-    char* abs;
-
-    char* lnk_base = strrchr(link,'/');
-//    char* lnk_root = strchr(link,'/');
-    int len_lnk = lnk_base!=NULL?strlen(lnk_base)-1:strlen(link);
-    char* trg_base = strrchr(target,'/');
-    int len_trg = trg_base!=NULL?strlen(trg_base):strlen(target);
-    if(target[0] == '/'){
-        char* targetdup = strdup(target);
-        targetdup[strlen(target)-len_trg] = '\0';
-//        printf("dup %s\n",targetdup);
-        abs = realpath(targetdup,NULL);
-//        printf("abs %s\n",abs);
-        free(targetdup);
-        return abs;
-    }
-    else {
-        char pathc[PATH_MAX] = {};
-//        printf("link: %s\ntarget: %s\n", link, target);
-//        printf("%s\n", pathc);
-        strncpy(pathc, link, strlen(link) - len_lnk);
-//        printf("%s\n", pathc);
-        strncat(pathc, target, strlen(target) - len_trg);
-//        printf("%s\n", pathc);
-//    char* dir = dirname(pathc);
-//    printf("%s\n",dir);
-        abs = realpath(pathc, NULL);
-//        printf("%s\n",abs);
-        if (abs == NULL) {
-            perror("realpath");
-            exit(EXIT_FAILURE);
-        }
-    }
-//    }
-    return abs;
-}
-
-
-
-
 
 int compare_links(char* pathA, char* rootA, char* pathB, char* rootB, struct stat* stA, struct stat* stB) {
-//    char link_pathA[PATH_MAX];
-//    char link_pathB[PATH_MAX];
     char targetA[PATH_MAX];
     char targetB[PATH_MAX];
-//    strcpy(link_pathA, pathA);
-//                        link_pathB = malloc(strlen(new_pathB)+1);
-//    strcpy(link_pathB, pathB);
-    char* link_pathA,* link_pathB;
+    char* link_pathA,* link_pathB; //this is the path for reading the link, at first its the same as pathA but changes to the target path when following a chain of links
     link_pathA = strdup(pathA);
     link_pathB = strdup(pathB);
     int flag = 1;
-//    putchar('\n');
-    while (flag) {
+    while (flag) { //i started with a  `while(1)` loop so i left it like that :)
+        //these will hold the readlink target path
         char *target_pathA;
         char *target_pathB;
         int nbytesA, nbytesB;
-        char *target_dirA;
-        char *target_baseA;
-        char *target_dirB;
-        char *target_baseB;
-        char *link_dirA;
-        char *link_dirB;
         targetA[stA->st_size] = '\0';
-//        printf("linkpaths:%s %s\n",link_pathA,link_pathB);
-//        printf("paths:%s %s\n",pathA,pathB);
         nbytesA = readlink(link_pathA, targetA, stA->st_size + 1);
         targetA[nbytesA] = '\0';
-//        printf("nbytesA = %d\n", nbytesA);
         if (nbytesA == -1) {
             perror("readlink");
             exit(EXIT_FAILURE);
         }
 
-//        printf("targetA = %s\n",targetA);
-//        if (targetA[0]!='/'){
-//            target_dirA = absolute_dirname(link_pathA,targetA);
-//        }
-//        else{
-//            target_dirA = dirname(targetA);
-//        }
-//        target_dirA = absolute_dirname(link_pathA, targetA);
-        target_baseA = strrchr(targetA, '/');
-        if (targetA[0] != '/'){
-            target_pathA = construct_path(dirname(link_pathA),targetA);
+        //NOTE: the link's path is relative to our current directory, the target's path is relative to the link's directory
+        if (targetA[0] != '/'){ //if the link target is relative we need to construct it's path that is relative to our current directory
+            target_pathA = construct_path(dirname(link_pathA),targetA); //this is going to be the directory path of the link concatinated with target
         }
-        else{
+        else{ //target is absolute no need to construct it
             target_pathA = strdup(targetA);
         }
-        canonicalize_path(target_pathA);
-        if(target_baseA == NULL){
-            target_baseA = targetA;
-        }
-        else{
-            target_baseA++;
-        }
-//        printf("dirname %s\n",target_dirA);
-//        printf("dirname: %s basename: %s\n",target_dirA,targetA);
-//        targetB[stB->st_size] = '\0';
+        canonicalize_path(target_pathA); //this is to resolve extra slashes, dots, etc...
+        //same as targetA
         nbytesB = readlink(link_pathB, targetB, stB->st_size + 1);
         targetB[nbytesB] = '\0';
         if (nbytesB == -1) {
             perror("readlink");
             exit(EXIT_FAILURE);
         }
-//        printf("targetA = %s\n",targetA);
-//        printf("targetB = %s\n",targetB);
-//        printf("paths: %s %s\n",link_pathA,link_pathB);
-//        printf("targets: %s %s\n",targetA,targetB);
         if (targetB[0] != '/'){
             target_pathB = construct_path(dirname(link_pathB),targetB);
         }
@@ -192,25 +102,9 @@ int compare_links(char* pathA, char* rootA, char* pathB, char* rootB, struct sta
             target_pathB = strdup(targetB);
         }
         canonicalize_path(target_pathB);
-        target_baseB = strrchr(targetB, '/'); // doesn't need free
-        if (target_baseB == NULL){
-            target_baseB = targetB;
-        }
-        else{
-            target_baseB++;
-        }
-//        printf("dirname: %s basename: %s\n", strstr(target_dirB,rootB)+ strlen(rootB),target_baseB);
-//        printf("dirname: %s basename: %s\n", strstr(target_dirA,rootA)+ strlen(rootA),target_baseA);
-//        printf("dirname: %s basename: %s\n", target_dirA,targetA);
-//        if (!strcmp(strstr(target_dirA,rootA)+ strlen(rootA), strstr(target_dirB,rootB)+ strlen(rootB)) && !strcmp(target_baseA, target_baseB)) {
-//        printf("paths: %s %s\n",pathA,pathB);
-//        printf("%s %s %d\n",target_pathA,target_pathB,strcmp(strstr(target_pathA,rootA)+ strlen(rootA),strstr(target_pathB,rootB)+strlen(rootB)));
+        //we need to compare the relative paths, skip the roots
         if (!strcmp(strstr(target_pathA,rootA)+ strlen(rootA),strstr(target_pathB,rootB)+strlen(rootB))) {
-//            printf("here")
-//            free(target_dirA);
-//            free(target_dirB);
             struct stat st_targA, st_targB;
-//            target_pathA = construct_path(target_dirA, target_baseA);
             if(lstat(target_pathA, &st_targA)==-1){
                 free(link_pathA);
                 free(link_pathB);
@@ -218,9 +112,6 @@ int compare_links(char* pathA, char* rootA, char* pathB, char* rootB, struct sta
                 free(target_pathB);
                 return 0;
             }
-//            target_pathB = construct_path(target_dirB, target_baseB);
-//            free(target_dirA);
-//            free(target_dirB);
             if(lstat(target_pathB, &st_targB)==-1){
                 free(link_pathA);
                 free(link_pathB);
@@ -228,10 +119,10 @@ int compare_links(char* pathA, char* rootA, char* pathB, char* rootB, struct sta
                 free(target_pathB);
                 return 0;
             }
-            if ((st_targA.st_mode & S_IFMT) == (st_targB.st_mode & S_IFMT))
+            if ((st_targA.st_mode & S_IFMT) == (st_targB.st_mode & S_IFMT)) {
                 switch (st_targA.st_mode & S_IFMT) {
                     case S_IFREG:
-//                        flag = 0;
+                        //no more links to follow just return the comparison check
                         flag = (st_targA.st_size == st_targB.st_size) &&
                                files_have_same_contents(target_pathA, target_pathB, st_targA.st_size);
                         free(link_pathA);
@@ -240,27 +131,23 @@ int compare_links(char* pathA, char* rootA, char* pathB, char* rootB, struct sta
                         free(target_pathB);
                         return flag;
                     case S_IFLNK:
-//                                        free(link_pathA);
-//                                        link_pathA = malloc(strlen(target_pathA)+1);
+                        //the new link path will be the target  path, so we can follow links
                         free(link_pathA);
                         link_pathA = strdup(target_pathA);
-//                                        free(link_pathB);
-//                                        link_pathB = malloc(strlen(target_pathB)+1);
                         free(link_pathB);
                         link_pathB = strdup(target_pathB);
                         free(target_pathA);
                         free(target_pathB);
                         continue;
                     default:
-                        return -1;
-                        break;
+                        return 0;
                 }
+            }
+            else{
+                return 0;
+            }
         }
         else {
-//            printf("targetA_size: %d\ntargetB_size: %d\n", stA->st_size, stB->st_size);
-//            printf("targetA: %s\ntargetB: %s\n", targetA, targetB);
-//            free(target_dirA);
-//            free(target_dirB);
             free(link_pathA);
             free(link_pathB);
             free(target_pathA);
@@ -270,6 +157,7 @@ int compare_links(char* pathA, char* rootA, char* pathB, char* rootB, struct sta
     }
 }
 
+//macro to find out which file was modified last
 #define compare_timespec(a, b, CMP)     (((a)->tv_sec==(b)->tv_sec) \
                                         ?((a)->tv_nsec CMP (b)->tv_nsec) \
                                         :((a)->tv_sec CMP (b)->tv_sec))
@@ -279,6 +167,8 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB, listPtr inter
     int lenA = 0,lenB = 0;
     struct dirent** a = NULL;
     struct dirent** b = NULL;
+    //kaloume scandir gia na mas epistrafoun ola ta contents twn duo dirs taksinomimena kata onoma.
+    //an dwthei san orisma ena apo ta duo NULL, den to kanoume giati auto simainei oti den uparxei to idio subdir sta duo dirs
     if (pathA){
         lenA = scandir(pathA,&a,filter,alphasort);
     }
@@ -286,43 +176,36 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB, listPtr inter
         lenB = scandir(pathB,&b,filter,alphasort);
     }
     int i = 0, j = 0;
-    char* new_pathA = NULL,*new_pathB = NULL;
+    char* new_pathA = NULL,*new_pathB = NULL;  //kathe fora pou sunantame ena neo arxeio, ftiaxnoume to path tou
     char* path;
     struct stat stA,stB;
-    while(i<lenA && j<lenB){
-        if(strcmp(a[i]->d_name,b[j]->d_name)<0){
-            //lenA--;  //allagi sunthikis, to sbinw gia na kserw megethos pinaka gia free meta
-            new_pathA = construct_path(pathA,a[i++]->d_name);
-//            listInsert(interscetion,new_pathA);
+    while(i<lenA && j<lenB){ //efoson oi duo pinakes einai sorted, pame kai elegxoume ta stoixeia ena pros ena
+        if(strcmp(a[i]->d_name,b[j]->d_name)<0){ //o pinakas A exei stoixeio pou den exei o B, to krataw sti lista tou dirA
+            new_pathA = construct_path(pathA,a[i++]->d_name); //auksanw mono to i pou einai o index tou pinaka a[]
             lstat(new_pathA,&stA);
             listInsert(diffA,new_pathA,&stA,MERGE);
             if( (stA.st_mode&S_IFMT) ==S_IFDIR){ //an einai dir, prepei na mpoume na to elegksoume
-                compare(new_pathA, NULL,diffA,NULL,NULL);
+                compare(new_pathA, NULL,diffA,NULL,NULL); //anadromiko step
             }
             free(new_pathA);
         }
-        else if(strcmp(a[i]->d_name,b[j]->d_name)>0){
+        else if(strcmp(a[i]->d_name,b[j]->d_name)>0){  //antistrofi periptwsi apo panw, antistoixi diadikasia.
            // lenB--;
-            new_pathB =  construct_path(pathB,b[j++]->d_name);
+            new_pathB =  construct_path(pathB,b[j++]->d_name); //auksanw mono to j pou einai o index tou pinaka b[]
             lstat(new_pathB,&stB);
             listInsert(diffB, new_pathB,&stB,MERGE);
-            if ((stB.st_mode&S_IFMT )== S_IFDIR){ //an einai dir, prepei na mpoume na to elegksoume
+            if ((stB.st_mode&S_IFMT )== S_IFDIR){
                 compare(NULL,new_pathB,NULL,diffB,NULL);
             }
             free(new_pathB);
         }
-        else{  //ta arxeia exoun to idio onoma, elegxw an exoun kai idio tupo. an diaferoun se kati, mpainoun kai stis duo listes
-           // lenA--;
-           // lenB--;
+        else{  //ta arxeia exoun to idio onoma, elegxw an exoun kai idio tupo. an diaferoun se kati, mpainoun kai stis duo listes alla mono to pio prosfato markarete me is_merge
             new_pathA = construct_path(pathA,a[i++]->d_name);
             new_pathB = construct_path(pathB,b[j++]->d_name);
             lstat(new_pathA,&stA);
             lstat(new_pathB,&stB);
             if ((stA.st_mode&S_IFMT) == (stB.st_mode&S_IFMT)){
                 int flag = 0;
-                char link_pathA[PATH_MAX];
-                char link_pathB[PATH_MAX];
-//                int flag = 0;
                 switch (stA.st_mode&S_IFMT) {
                     case S_IFDIR:
                         flag = 1;
@@ -333,16 +216,13 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB, listPtr inter
                         //compare files
                         flag = (stA.st_size==stB.st_size) && files_have_same_contents(new_pathA,new_pathB,stA.st_size);
                         if (!flag){
-//                     = compare_timespec(&stA.st_mtim,&stB.st_mtim,>);
                             listInsert(diffA,new_pathA,&stA, compare_timespec(&stA.st_mtim,&stB.st_mtim,>=));
                             listInsert(diffB,new_pathB,&stB,compare_timespec(&stA.st_mtim,&stB.st_mtim,<));
-//                    "dirA/dir1/dir11/dir111/file.txt"
                         }
                         else{
                             if ((stA.st_nlink==1 && stB.st_nlink>1)||(stB.st_nlink==1 && stA.st_nlink>1)){
                                 listInsert(diffA,new_pathA,&stA,stA.st_nlink==1);
                                 listInsert(diffB,new_pathB,&stB,stB.st_nlink==1);
-//                                listInsert(diffB)
                             }
                             else{
                                 list_node* node = listInsert(interscetion,new_pathA,&stA,MERGE);
@@ -351,45 +231,27 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB, listPtr inter
                                 }
                             }
                         }
-//                        if( !(stA.st_size==stB.st_size && (files_have_same_contents(new_pathA,new_pathB,stA.st_size))) ){ //an den exoun idio size kai den exoun idia contents, den einai to idio arxeio, prepei na ta emfanisoume
-////                            listInsert(diffA,new_pathA);
-////                            listInsert(diffB,new_pathB);
-//                            flag = 1;
-//                        }
-//                        else{ //einia idia vale to pathA apo paradoxi
-//                            path = new_pathA;
-//                        }
-//                        listInsert(interscetion,path);
                         break;
                     case S_IFLNK:
                         //compare links
-//                        link_pathA = malloc(strlen(new_pathA)+1);
-//                        compare_links(new_pathA,new_pathB,&stA,&stB,diffA,)
                         flag = compare_links(new_pathA, listDirname(diffA),new_pathB,listDirname(diffB),&stA,&stB) ;
-                        if (!flag){
-//                     = compare_timespec(&stA.st_mtim,&stB.st_mtim,>);
-                            listInsert(diffA,new_pathA,&stA, compare_timespec(&stA.st_mtim,&stB.st_mtim,>));
-                            listInsert(diffB,new_pathB,&stB,compare_timespec(&stA.st_mtim,&stB.st_mtim,<));
-//                    "dirA/dir1/dir11/dir111/file.txt"
+                        if (!flag){ //if they are not the same but have same name
+                            listInsert(diffA,new_pathA,&stA, compare_timespec(&stA.st_mtim,&stB.st_mtim,>=)); //merge if latest
+                            listInsert(diffB,new_pathB,&stB,compare_timespec(&stA.st_mtim,&stB.st_mtim,<)); //merge if latest
                         }
                         else{
-                            listInsert(interscetion,new_pathA,&stA,MERGE);
+                            listInsert(interscetion,new_pathA,&stA,MERGE); //they are the same put in intersection
                         }
-//                        if(!compare_links(new_pathA, listDirname(diffA),new_pathB,listDirname(diffB),&stA,&stB)){
-//                            listInsert(diffA,new_pathA);
-//                            listInsert(diffB,new_pathB);
-//                        }
                         break;
                     default:
                         exit(EXIT_FAILURE);
-                        break;
                 }
             }
             free(new_pathA);
             free(new_pathB);
         }
     }
-    for (; i<lenA; i++) {
+    for (; i<lenA; i++) { //put the rest in diffA
         new_pathA = construct_path(pathA,a[i]->d_name);
         lstat(new_pathA,&stA);
         listInsert(diffA,new_pathA,&stA,MERGE);
@@ -397,10 +259,8 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB, listPtr inter
             compare(new_pathA,NULL,diffA,NULL,NULL);
         }
         free(new_pathA);
-//        (*diffA)[ii] = malloc(a[i]->d_reclen);
-//        memcpy((*diffA)[ii++],a[i],a[i]->d_reclen);
     }
-    for (; j<lenB; j++) {
+    for (; j<lenB; j++) { //put the rest in diffB
         new_pathB =  construct_path(pathB,b[j]->d_name);
         lstat(new_pathB,&stB);
         listInsert(diffB, new_pathB,&stB,MERGE);
@@ -416,7 +276,7 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB, listPtr inter
 }
 
 
-int search_inode(ino_t inode, ino_t* arr, int n){
+int search_inode(ino_t inode, ino_t* arr, int n){ //linear array search
     for (int i = 0; i < n; i++) {
         if (arr[i]==inode){
             return i;
@@ -430,7 +290,6 @@ void copy_file(char *source_file_path,char *dest_file_path,mode_t perms,size_t l
     int fd_source,fd_dest;
     fd_source=open(source_file_path,O_RDONLY);
     if(fd_source==-1){
-//        printf("%s ",source_file_path);
         perror("open()");
         exit(1);
     }
@@ -449,27 +308,6 @@ void copy_file(char *source_file_path,char *dest_file_path,mode_t perms,size_t l
         }
         len -= ret;
     } while (len>0&&ret>0);
-
-//    char buffer;
-//    size_t read_bytes,written_bytes;
-//    read_bytes=read(fd_source,&buffer,1);
-//    if(read_bytes==-1){
-//        perror("read()");
-//        exit(1);
-//    }
-//    while(read_bytes>0){
-//        written_bytes=write(fd_dest,&buffer,1);
-//        if(written_bytes==-1){
-//            perror("write()");
-//            exit(1);
-//        }
-//        read_bytes=read(fd_source,&buffer,1);
-//        if(read_bytes==-1){
-//            perror("read()");
-//            exit(1);
-//        }
-//
-//    }
     close(fd_source);
     close(fd_dest);
 }
@@ -477,8 +315,7 @@ void copy_file(char *source_file_path,char *dest_file_path,mode_t perms,size_t l
 
 
 
-int merge(char* dirC, listPtr* mergelists){
-//    listPtr mergelists[] = {diffA,diffB,interscetion, NULL};
+void merge(char* dirC, listPtr* mergelists){
     if (mkdir(dirC,0777)==-1){
         perror("mkdir");
         exit(EXIT_FAILURE);
@@ -487,7 +324,6 @@ int merge(char* dirC, listPtr* mergelists){
     char** names; //names array
     int count=0; //array count
     int idx; //search index
-    char* buffer;
     list_node* tmp;
     char target[PATH_MAX];
     int len = 0;
@@ -499,28 +335,26 @@ int merge(char* dirC, listPtr* mergelists){
     char* merge_path;
     for (int i = 0; mergelists[i]!=NULL; i++) { //loop twn listwn
         tmp = mergelists[i]->head;
-//        count = 0;
-//        inodes = malloc(sizeof(ino_t)*mergelists[i]->nlinks_count);
-//        names = malloc(mergelists[i]->nlinks_count);
         while (tmp!=NULL){ //loop tis listas
             if(tmp->is_merge){
-                merge_path = substitute_path(tmp->file_path,mergelists[i]->dirName,dirC);
-                if (merge_path==NULL){
+                merge_path = substitute_path(tmp->file_path,mergelists[i]->dirName,dirC); //create correct path for the merge directory
+                if (merge_path==NULL){ //if null, skip it
                     tmp = tmp->nxt;
                     continue;
                 }
                 switch ((tmp->st_mode & S_IFMT)) {
                     case S_IFREG:
-                        if (tmp->st_nlink>1){
-                            if((idx = search_inode(tmp->st_inoA,inodes,count))>=0){
+                        if (tmp->st_nlink>1){ //this is for hardlinks
+                            if((idx = search_inode(tmp->st_inoA,inodes,count))>=0){ //if we have already copied linkode then link it
                                 link(names[idx],merge_path); //ftiaxnw to path me to dirC
                             }
-                            else{
+                            else{ //copy file and add its linknode
                                 //create file
                                 inodes[count] = tmp->st_inoA;
-                                names[count] = strdup(merge_path); //ftiaxnw to path me to dirC
+                                names[count] = strdup(merge_path);
                                 count++;
-                                if (tmp->st_inoB != 0 && search_inode(tmp->st_inoB,inodes,count)>=0 ){
+                                //if there exists a second inode, its a special hardlinks case, just add this as well
+                                if (tmp->st_inoB != 0 && search_inode(tmp->st_inoB,inodes,count)<0 ){
                                     inodes[count] = tmp->st_inoB;
                                     names[count] = strdup(merge_path);
                                     count++;
@@ -540,7 +374,7 @@ int merge(char* dirC, listPtr* mergelists){
                         //create links
                         readlink(tmp->file_path,target,tmp->st_size+1);
                         target[tmp->st_size] = '\0';
-                        symlink(target,merge_path); //alla ftiaxneis ta path me to dirC
+                        symlink(target,merge_path);
                         break;
                 }
                 free(merge_path);
@@ -556,9 +390,6 @@ int merge(char* dirC, listPtr* mergelists){
 }
 
 listPtr* diff(char* dirA, char* dirB){
-//    printf("%lu\n",ULONG_MAX);
-//    printf("%d\n",sizeof(ino_t));
-
     listPtr diffA,diffB,interscetion;
     diffA = listInit(dirA);
     diffB = listInit(dirB);
@@ -568,12 +399,10 @@ listPtr* diff(char* dirA, char* dirB){
     listPrint(diffA);
     printf("\nIn %s:\n",dirB);
     listPrint(diffB);
-//    listDstr(diffA);
-//    listDstr(diffB);
     listPtr* ret = malloc(4*sizeof(list*));
     ret[0] = interscetion;
     ret[1] = diffA;
     ret[2] = diffB;
-    ret[3] = NULL;
+    ret[3] = NULL; //this for mergelist loop
     return ret;
 }

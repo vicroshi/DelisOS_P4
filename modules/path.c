@@ -3,13 +3,13 @@
 //
 #include <string.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <stdio.h>
 #include <limits.h>
 #include "path.h"
 
+//i sunartisi pairnei ena path kai ena file name kai epistrefei ena neo string me ta duo auta enwmena
 char* construct_path(char* path,char* name){
-    char *new_path=malloc(strlen(path)+strlen(name)+2);
+    char *new_path=malloc(strlen(path)+strlen(name)+2); //+1 gia to '/' kai +1 gia to '/0'
     if(new_path==NULL){
         perror("malloc()");
         exit(1);
@@ -19,62 +19,46 @@ char* construct_path(char* path,char* name){
     strcat(new_path,name);
     return new_path;
 }
-
+//edw pairnoume ena path me tyxon "." kai ".." mesa kai ta kanoume resolve
 void canonicalize_path(char *path) {
-    char result[PATH_MAX];
+    char result[PATH_MAX]; //edw tha kratisoume tis allages gia na tis parei pisw to path
     char *token, *saveptr;
-
-    // Initialize result with an empty string
-    result[0] = '\0';
-
-    // Tokenize the input path based on '/'
-    token = strtok_r(path, "/", &saveptr);
-
+    result[0] = '\0'; //kleinoume arxika to array gia na min exoume thema me uninitialized buffer
+    token = strtok_r(path, "/", &saveptr); //pairnouome kathe substring anamesa se '/'
     while (token != NULL) {
-        if (strcmp(token, "..") == 0) {
-            // If token is '..', pop the last component from result
-            char *lastSlash = strrchr(result, '/');
-            if (lastSlash != NULL) {
+        if (strcmp(token, "..") == 0) { //brethike "..", ara to proigoumeno substring apo auto prepei na bgei apo to path
+            char *lastSlash = strrchr(result, '/'); //pame kai briskoume sto path pou exoume xtisei mexri twra poio einai to teleutiao substring psaxnontas gia to '/'.
+            if (lastSlash != NULL) {//an to broume, kleinoume ekei to string gia na ginei overwrite meta apo kati allo
                 *(lastSlash) = '\0';
             }
-        } else if (strcmp(token, ".") != 0 && strlen(token) > 0) {
-            // Ignore '.' and add other components to result
+        } else if (strcmp(token, ".") != 0 && strlen(token) > 0) { //an brethei otidipote allo plin tou "." to eisagoume kanonika sto path
             strcat(result, "/");
             strcat(result, token);
         }
-
-        // Get the next token
         token = strtok_r(NULL, "/", &saveptr);
     }
-
-    // Copy the canonicalized path back to the original buffer
-    if (path[0]=='/'){
+    if (path[0]=='/'){ //if the path was absolute, keep the starting '/'
         strcpy(path, result);
     }
-    else{
+    else{ //else skip it and don't copy it
         strcpy(path, result+1);
     }
-
-//    path[strlen(result)-1] = '\0';
 }
 
+
+//edw antikathistoume allazoume apo to string haystack  tin prwti periptwsi pou briskoume to substring needle me to substring sub.
+//xrisimiopoieitai gia tin merge gia na allazoume ta paths apo ta dirA kai dirB se dirC
 char* substitute_path(char* haystack,char* needle, char* sub){
     char result[PATH_MAX];
     result[0] = '\0';
     char* str = strstr(haystack,needle);
     if (str == NULL){
-        return NULL;
+        return str;
     }
-    str+= strlen(needle);
+    str+= strlen(needle);  //kratame to upoloipo substring meta apo to simeio pou tha ginei i allagi
     strcat(result,sub);
     strcat(result,str);
     char* ret = malloc(strlen(result)+1);
     strcpy(ret,result);
-//    printf("strsub: %s\n",ret);
-//    printf("haystack: %s\n",haystack);
-//    printf("needle: %s\n",needle);
-//    printf("result: %s\n",result);
-//    printf("str: %s\n",str);
     return ret;
-
 }

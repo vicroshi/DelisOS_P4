@@ -7,13 +7,18 @@ int main(int argc, char** argv) {
 //    return 0;
     char *dirA=NULL,*dirB=NULL,*dirC=NULL;
     int c;
-    while ((c = getopt(argc,argv,":s:"))!=-1){
+    while ((c = getopt(argc,argv,":d:s:"))!=-1){
         switch (c) {
             case 's':
                 dirC = optarg;
             break;
+            case 'd':
+                dirA = optarg;
+                break;
             case ':':
-                dirC = NULL;
+//                dirC = NULL;
+                printf("missing argument for option -%c\nExiting...\n",optopt);
+                exit(EXIT_FAILURE);
                 break;
             case '?':
                 fprintf(stderr, "invalid option: -%c\n", optopt);
@@ -21,10 +26,15 @@ int main(int argc, char** argv) {
         }
     }
     if (optind<argc){
-        dirA = argv [optind];
-        dirB = argv[optind+1];
+//        dirA = argv [optind];
+        dirB = argv[optind];
     }
 //    printf("%s %s %s\n",dirA,dirB,dirC);
+
+    if (dirA==NULL || dirB==NULL){
+        printf("Usage:\n./cmpcats -d path/to/first/dir path/to/second/dir [-s path/to/merge/dir] \n(option enclosed in '[', ']' is optional)\n");
+        exit(EXIT_FAILURE);
+    }
 //    return 0;
     listPtr* mergeLists = diff(dirA,dirB);
     if (dirC!=NULL){

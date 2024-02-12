@@ -6,5 +6,5 @@
 #define DELISOS_P4_DIFF_H
 #include "list.h"
 listPtr* diff(char*,char*);
-int merge(char*,listPtr*);
+void merge(char*,listPtr*);
 #endif //DELISOS_P4_DIFF_H
