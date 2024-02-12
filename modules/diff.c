@@ -155,6 +155,7 @@ int compare_links(char* pathA, char* rootA, char* pathB, char* rootB, struct sta
             return 0;
         }
     }
+    return flag;
 }
 
 //macro to find out which file was modified last
@@ -177,7 +178,6 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB, listPtr inter
     }
     int i = 0, j = 0;
     char* new_pathA = NULL,*new_pathB = NULL;  //kathe fora pou sunantame ena neo arxeio, ftiaxnoume to path tou
-    char* path;
     struct stat stA,stB;
     while(i<lenA && j<lenB){ //efoson oi duo pinakes einai sorted, pame kai elegxoume ta stoixeia ena pros ena
         if(strcmp(a[i]->d_name,b[j]->d_name)<0){ //o pinakas A exei stoixeio pou den exei o B, to krataw sti lista tou dirA
@@ -308,6 +308,29 @@ void copy_file(char *source_file_path,char *dest_file_path,mode_t perms,size_t l
         }
         len -= ret;
     } while (len>0&&ret>0);
+    //this code is alternative byte-byte copy to run if you encounter valgrind bug
+    // https://valgrind.org/docs/manual/dist.readme-missing.html
+    //vrikame auto to bug otan treksame valgrind sta linux tis sxolis
+//    char buffer;
+//    size_t read_bytes,written_bytes;
+//    read_bytes=read(fd_source,&buffer,1);
+//    if(read_bytes==-1){
+//        perror("read()");
+//        exit(1);
+//    }
+//    while(read_bytes>0){
+//        written_bytes=write(fd_dest,&buffer,1);
+//        if(written_bytes==-1){
+//            perror("write()");
+//            exit(1);
+//        }
+//        read_bytes=read(fd_source,&buffer,1);
+//        if(read_bytes==-1){
+//            perror("read()");
+//            exit(1);
+//        }
+//
+//    }
     close(fd_source);
     close(fd_dest);
 }

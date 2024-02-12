@@ -22,8 +22,11 @@ testHardLinks1:
 testHardLinks2:
 	./$(EXEC) -d dirHardC dirHardD -s dirM
 
+clean_dirs:
+	rm -rf dir*
+
 clean_merge:
-	rm dirM
+	rm -rf dirM
 
 clean:
 	rm $(EXEC) $(OBJ)
