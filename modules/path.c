@@ -46,6 +46,16 @@ void canonicalize_path(char *path) {
 }
 
 
+char* relative_path(char* path,char* root){
+    char* rel = strstr(path,root);
+    if(rel!=NULL){
+        return rel+strlen(root);
+    }
+    else{
+        return rel;
+    }
+}
+
 //edw antikathistoume allazoume apo to string haystack  tin prwti periptwsi pou briskoume to substring needle me to substring sub.
 //xrisimiopoieitai gia tin merge gia na allazoume ta paths apo ta dirA kai dirB se dirC
 char* substitute_path(char* haystack,char* needle, char* sub){

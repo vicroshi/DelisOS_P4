@@ -103,7 +103,15 @@ int compare_links(char* pathA, char* rootA, char* pathB, char* rootB, struct sta
         }
         canonicalize_path(target_pathB);
         //we need to compare the relative paths, skip the roots
-        if (!strcmp(strstr(target_pathA,rootA)+ strlen(rootA),strstr(target_pathB,rootB)+strlen(rootB))) {
+        //fix:
+        char* relativeA=relative_path(target_pathA,rootA);
+        char* relativeB=relative_path(target_pathB,rootB);
+        if (relativeA==NULL||relativeB==NULL){
+            return 0;
+        }
+        //error
+        //if (!strcmp(strstr(target_pathA,rootA)+ strlen(rootA),strstr(target_pathB,rootB)+strlen(rootB))) {
+        if (!strcmp(relativeA,relativeB)) {
             struct stat st_targA, st_targB;
             if(lstat(target_pathA, &st_targA)==-1){
                 free(link_pathA);
@@ -416,6 +424,12 @@ listPtr* diff(char* dirA, char* dirB){
     listPtr diffA,diffB,interscetion;
     diffA = listInit(dirA);
     diffB = listInit(dirB);
+    if (diffA->dirName!=NULL){
+        canonicalize_path(diffA->dirName);
+    }
+    if (diffB->dirName!=NULL){
+        canonicalize_path(diffB->dirName);
+    }
     interscetion = listInit(dirA);
     compare(dirA,dirB,diffA,diffB,interscetion);
     printf("In %s:\n",dirA);
