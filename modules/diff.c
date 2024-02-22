@@ -172,7 +172,7 @@ int compare_links(char* pathA, char* rootA, char* pathB, char* rootB, struct sta
                                         :((a)->tv_sec CMP (b)->tv_sec))
 
 
-void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB, listPtr interscetion){
+void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB, listPtr interscetion, char is_merge){
     int lenA = 0,lenB = 0;
     struct dirent** a = NULL;
     struct dirent** b = NULL;
@@ -193,7 +193,7 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB, listPtr inter
             lstat(new_pathA,&stA);
             listInsert(diffA,new_pathA,&stA,MERGE);
             if( (stA.st_mode&S_IFMT) ==S_IFDIR){ //an einai dir, prepei na mpoume na to elegksoume
-                compare(new_pathA, NULL,diffA,NULL,NULL); //anadromiko step
+                compare(new_pathA, NULL,diffA,NULL,NULL,is_merge); //anadromiko step
             }
             free(new_pathA);
         }
@@ -201,9 +201,9 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB, listPtr inter
            // lenB--;
             new_pathB =  construct_path(pathB,b[j++]->d_name); //auksanw mono to j pou einai o index tou pinaka b[]
             lstat(new_pathB,&stB);
-            listInsert(diffB, new_pathB,&stB,MERGE);
+            listInsert(diffB, new_pathB,&stB,is_merge);
             if ((stB.st_mode&S_IFMT )== S_IFDIR){
-                compare(NULL,new_pathB,NULL,diffB,NULL);
+                compare(NULL,new_pathB,NULL,diffB,NULL,is_merge);
             }
             free(new_pathB);
         }
@@ -217,8 +217,8 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB, listPtr inter
                 switch (stA.st_mode&S_IFMT) {
                     case S_IFDIR:
                         flag = 1;
-                        listInsert(interscetion,new_pathA, &stA,MERGE);
-                        compare(new_pathA,new_pathB,diffA,diffB,interscetion);
+                        listInsert(interscetion,new_pathA, &stA,is_merge);
+                        compare(new_pathA,new_pathB,diffA,diffB,interscetion,is_merge);
                         break;
                     case S_IFREG: //exoun idio name kai eiani regular files. elegxw an exoun idio size kai an ta contents einai ta idia
                         //compare files
@@ -255,6 +255,26 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB, listPtr inter
                         exit(EXIT_FAILURE);
                 }
             }
+            //fix
+            else{
+                listInsert(diffA,new_pathA,&stA, compare_timespec(&stA.st_mtim,&stB.st_mtim,>=)); //merge if latest
+                switch (stA.st_mode&S_IFMT) {
+                    case S_IFDIR:
+                        compare(new_pathA,NULL,diffA,NULL,NULL,compare_timespec(&stA.st_mtim,&stB.st_mtim,>=));
+                        break;
+                    default:
+                        break;
+                }
+                listInsert(diffB,new_pathB,&stB,compare_timespec(&stA.st_mtim,&stB.st_mtim,<)); //merge if latest
+                switch (stB.st_mode&S_IFMT) {
+                    case S_IFDIR:
+                        compare(NULL,new_pathB,NULL,diffB,NULL, compare_timespec(&stA.st_mtim,&stB.st_mtim,<));
+                        break;
+                    default:
+                        break;
+                }
+            }
+            //fix
             free(new_pathA);
             free(new_pathB);
         }
@@ -262,18 +282,18 @@ void compare(char* pathA, char* pathB,listPtr diffA,listPtr diffB, listPtr inter
     for (; i<lenA; i++) { //put the rest in diffA
         new_pathA = construct_path(pathA,a[i]->d_name);
         lstat(new_pathA,&stA);
-        listInsert(diffA,new_pathA,&stA,MERGE);
+        listInsert(diffA,new_pathA,&stA,is_merge);
         if ((stA.st_mode&S_IFMT )== S_IFDIR){
-            compare(new_pathA,NULL,diffA,NULL,NULL);
+            compare(new_pathA,NULL,diffA,NULL,NULL,is_merge);
         }
         free(new_pathA);
     }
     for (; j<lenB; j++) { //put the rest in diffB
         new_pathB =  construct_path(pathB,b[j]->d_name);
         lstat(new_pathB,&stB);
-        listInsert(diffB, new_pathB,&stB,MERGE);
+        listInsert(diffB, new_pathB,&stB,is_merge);
         if ((stB.st_mode&S_IFMT )== S_IFDIR){
-            compare(NULL,new_pathB,NULL,diffB,NULL);
+            compare(NULL,new_pathB,NULL,diffB,NULL,is_merge);
         }
         free(new_pathB);
     }
@@ -431,7 +451,7 @@ listPtr* diff(char* dirA, char* dirB){
         canonicalize_path(diffB->dirName);
     }
     interscetion = listInit(dirA);
-    compare(dirA,dirB,diffA,diffB,interscetion);
+    compare(dirA,dirB,diffA,diffB,interscetion,MERGE);
     printf("In %s:\n",dirA);
     listPrint(diffA);
     printf("\nIn %s:\n",dirB);
